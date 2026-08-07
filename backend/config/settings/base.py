@@ -271,6 +271,9 @@ SPECTACULAR_SETTINGS = {
 
 # ── Logging ─────────────────────────────────────────────────────────
 
+LOGS_DIR = BASE_DIR / 'logs'
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -291,12 +294,12 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'qalajob.log',
+            'filename': LOGS_DIR / 'qalajob.log',
             'formatter': 'verbose',
         },
         'security_file': {
             'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'security.log',
+            'filename': LOGS_DIR / 'security.log',
             'formatter': 'verbose',
         },
     },

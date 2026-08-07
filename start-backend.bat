@@ -12,6 +12,8 @@ if exist "venv\Scripts\activate.bat" (
   exit /b 1
 )
 
+if not exist "logs" mkdir logs
+
 set DJANGO_SETTINGS_MODULE=config.settings.server
 set WAITRESS_HOST=0.0.0.0
 set WAITRESS_PORT=8088
