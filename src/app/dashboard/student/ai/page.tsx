@@ -1,7 +1,5 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import ResumeWorkspace from "@/app/components/dashboard/ResumeWorkspace";
-
-export default function ResumeAssistantPage() {
-  return <ResumeWorkspace />;
+export default function AiIndexPage() {
+  redirect("/dashboard/student/ai/resume");
 }

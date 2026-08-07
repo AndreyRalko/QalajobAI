@@ -15,7 +15,7 @@ export default function DashboardPage() {
           router.push("/login");
           return;
         }
-        router.replace("/dashboard/student/ai");
+      router.replace("/dashboard/student/ai/resume");
       } catch {
         router.push("/login");
       }

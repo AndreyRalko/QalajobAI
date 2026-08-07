@@ -396,6 +396,24 @@ def career_coach_chat(message: str, history: list = None, language: str = "kk") 
     return result.get("reply", "")
 
 
+def _job_context_block(
+    job_title: str = "",
+    company: str = "",
+    job_description: str = "",
+) -> str:
+    title = (job_title or "").strip()
+    comp = (company or "").strip()
+    desc = (job_description or "").strip()
+    if not title and not comp and not desc:
+        return ""
+    return (
+        "Target vacancy:\n"
+        f"Role: {title or '(not specified)'}\n"
+        f"Company: {comp or '(not specified)'}\n"
+        f"Job description:\n{desc or '(not specified)'}\n\n"
+    )
+
+
 def resume_assistant_chat(
     message: str,
     history: list = None,
@@ -429,6 +447,8 @@ def resume_assistant_chat(
     draft = (resume_draft or "").strip()
     draft_block = draft if draft else "(empty)"
 
+    job_ctx = _job_context_block(job_title, company, job_description)
+
     if mode == "cover_letter":
         system = (
             f"You are QalaJob Cover Letter AI for students and job seekers in Kazakhstan.\n"
@@ -450,6 +470,7 @@ def resume_assistant_chat(
             else ""
         )
         user_content = (
+            f"{job_ctx}"
             f"{context_block}"
             f"Current cover letter draft:\n{draft_block}\n\n"
             f"Conversation so far:\n{history_text or '(none)'}\n\n"
@@ -524,6 +545,7 @@ def resume_assistant_chat(
             else ""
         )
         user_content = (
+            f"{job_ctx}"
             f"{context_block}"
             f"Current interview prep draft:\n{draft_block}\n\n"
             f"Conversation so far:\n{history_text or '(none)'}\n\n"
@@ -548,6 +570,7 @@ def resume_assistant_chat(
             f"- Never invent fake employers, degrees, or dates — ask the user instead.\n"
         )
         user_content = (
+            f"{job_ctx}"
             f"Current resume draft:\n{draft_block if draft else '(empty — help the user create a resume from scratch)'}\n\n"
             f"Conversation so far:\n{history_text or '(none)'}\n\n"
             f"User message:\n{message}"

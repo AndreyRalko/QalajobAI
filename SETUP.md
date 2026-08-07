@@ -179,7 +179,8 @@ qalajob-ai/
 Settings:
 
 - `config.settings` / `config.settings.dev` — локальная разработка (SQLite, CORS open)
-- `config.settings.prod` — production / Docker
+- `config.settings.server` — VPS / Waitress :8088 (см. `DEPLOY.md`)
+- `config.settings.prod` — production / Docker (HTTPS + Postgres)
 
 ---
 

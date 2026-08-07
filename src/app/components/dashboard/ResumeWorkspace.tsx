@@ -2,7 +2,9 @@
 
 import jsPDF from "jspdf";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useVacancyContext } from "@/app/dashboard/student/ai/vacancy-context";
 import {
   aiGenerateCoverLetter,
   aiImportResumePdf,
@@ -12,13 +14,14 @@ import {
   aiResumeEnhance,
   getMyResume,
   getResumeAssistantChat,
+  hhAdaptResume,
   saveMyResume,
   type AiChatMessage,
   type WorkspaceMode,
 } from "@/lib/api";
 import { useTranslations } from "@/hooks/useTranslations";
 import { getAccessToken } from "@/lib/session";
-import HhJobsPanel from "@/app/components/dashboard/HhJobsPanel";
+import { workspaceHref } from "@/lib/workspace-routes";
 
 type MobileTab = "chat" | "draft";
 type SaveStatus = "idle" | "dirty" | "saving" | "saved" | "error";
@@ -29,13 +32,26 @@ type ModeState = {
   draft: string;
 };
 
+type Props = {
+  mode: WorkspaceMode;
+};
+
 const emptyMode = (): ModeState => ({
   messages: [],
   chatId: null,
   draft: "",
 });
 
-export default function ResumeWorkspace() {
+export default function ResumeWorkspace({ mode }: Props) {
+  const router = useRouter();
+  const {
+    jobTitle,
+    setJobTitle,
+    company,
+    setCompany,
+    jobDescription,
+    setJobDescription,
+  } = useVacancyContext();
   const { t, locale } = useTranslations();
   const chatEndRef = useRef<HTMLDivElement>(null);
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -46,11 +62,11 @@ export default function ResumeWorkspace() {
   const [authed, setAuthed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
-  const [mode, setMode] = useState<WorkspaceMode>("resume");
 
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
+  const [adapting, setAdapting] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [importing, setImporting] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -62,17 +78,29 @@ export default function ResumeWorkspace() {
     cover_letter: emptyMode(),
     interview: emptyMode(),
     mock_interview: emptyMode(),
-    hh: emptyMode(),
   });
 
-  const [jobTitle, setJobTitle] = useState("");
-  const [company, setCompany] = useState("");
-  const [jobDescription, setJobDescription] = useState("");
   const [tone, setTone] = useState("professional");
   const [difficulty, setDifficulty] = useState("medium");
 
   const active = modes[mode];
   const activeDraft = active.draft;
+
+  const getJobContext = () => {
+    const title = jobTitle.trim();
+    const comp = company.trim();
+    const desc = jobDescription.trim();
+    if (!title && !comp && !desc) return undefined;
+    return {
+      jobTitle: title,
+      company: comp,
+      jobDescription: desc,
+    };
+  };
+
+  const hasVacancyContext = Boolean(
+    jobTitle.trim() || company.trim() || jobDescription.trim()
+  );
 
   const quickActions = useMemo(() => {
     if (mode === "cover_letter") {
@@ -118,6 +146,14 @@ export default function ResumeWorkspace() {
   };
 
   useEffect(() => {
+    setQuestion("");
+    setMobileTab("chat");
+  }, [mode]);
+
+  useEffect(() => {
+    skipAutosave.current = true;
+    setLoaded(false);
+
     const load = async () => {
       const token = getAccessToken();
       if (!token) {
@@ -128,38 +164,26 @@ export default function ResumeWorkspace() {
       setAuthed(true);
 
       try {
-        const [resume, resumeChat, coverChat, interviewChat, mockChat] =
-          await Promise.all([
-            getMyResume().catch(() => null),
-            getResumeAssistantChat("resume").catch(() => null),
-            getResumeAssistantChat("cover_letter").catch(() => null),
-            getResumeAssistantChat("interview").catch(() => null),
-            getResumeAssistantChat("mock_interview").catch(() => null),
-          ]);
+        const [resume, chat] = await Promise.all([
+          getMyResume().catch(() => null),
+          getResumeAssistantChat(mode).catch(() => null),
+        ]);
 
-        setModes({
+        setModes((prev) => ({
+          ...prev,
           resume: {
-            messages: resumeChat?.messages || [],
-            chatId: resumeChat?.chat_id ?? null,
-            draft: resume?.content || "",
+            ...prev.resume,
+            draft: resume?.content || prev.resume.draft,
           },
-          cover_letter: {
-            messages: coverChat?.messages || [],
-            chatId: coverChat?.chat_id ?? null,
-            draft: "",
+          [mode]: {
+            messages: chat?.messages || [],
+            chatId: chat?.chat_id ?? null,
+            draft:
+              mode === "resume"
+                ? resume?.content || ""
+                : prev[mode]?.draft || "",
           },
-          interview: {
-            messages: interviewChat?.messages || [],
-            chatId: interviewChat?.chat_id ?? null,
-            draft: "",
-          },
-          mock_interview: {
-            messages: mockChat?.messages || [],
-            chatId: mockChat?.chat_id ?? null,
-            draft: "",
-          },
-          hh: emptyMode(),
-        });
+        }));
       } catch (error) {
         console.error(error);
       } finally {
@@ -170,7 +194,7 @@ export default function ResumeWorkspace() {
       }
     };
     void load();
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -215,12 +239,6 @@ export default function ResumeWorkspace() {
     }
   };
 
-  const switchMode = (next: WorkspaceMode) => {
-    setMode(next);
-    setQuestion("");
-    setMobileTab("chat");
-  };
-
   const sendMessage = async (
     text: string,
     modeOverride?: WorkspaceMode
@@ -254,13 +272,7 @@ export default function ResumeWorkspace() {
         chatId,
         activeMode,
         activeMode === "resume" ? undefined : modes.resume.draft,
-        activeMode === "resume"
-          ? undefined
-          : {
-              jobTitle: jobTitle.trim(),
-              company: company.trim(),
-              jobDescription: jobDescription.trim(),
-            }
+        getJobContext()
       );
 
       const nextDraft =
@@ -325,6 +337,41 @@ export default function ResumeWorkspace() {
       setSaveStatus("error");
     } finally {
       setEnhancing(false);
+      aiBusy.current = false;
+    }
+  };
+
+  const handleAdaptToVacancy = async () => {
+    if (!authed || adapting) return;
+    const text = jobDescription.trim();
+    const title = jobTitle.trim();
+    if (!text && !title) return;
+
+    setAdapting(true);
+    aiBusy.current = true;
+    try {
+      const data = await hhAdaptResume({
+        vacancyText: text || title,
+        vacancyTitle: title,
+        resume: modes.resume.draft,
+        language: locale,
+        save: true,
+      });
+      const adapted = data.adapted_resume || data.document_draft || "";
+      skipAutosave.current = true;
+      setModes((prev) => ({
+        ...prev,
+        resume: { ...prev.resume, draft: adapted },
+      }));
+      await persistResume(adapted);
+      skipAutosave.current = false;
+      router.push(workspaceHref("resume"));
+      setMobileTab("draft");
+    } catch (error) {
+      console.error(error);
+      setSaveStatus("error");
+    } finally {
+      setAdapting(false);
       aiBusy.current = false;
     }
   };
@@ -435,7 +482,6 @@ export default function ResumeWorkspace() {
       : "";
     const starter = `${t("aiPage.mockStartMessage")} ${role}${companyPart}.${desc}`;
 
-    setMode("mock_interview");
     setMobileTab("chat");
     setQuestion("");
     setLoading(true);
@@ -497,7 +543,6 @@ export default function ResumeWorkspace() {
 
   const finishMockInterview = async () => {
     if (loading) return;
-    setMode("mock_interview");
     await sendMessage(t("aiPage.mockFinishMessage"), "mock_interview");
   };
 
@@ -524,7 +569,7 @@ export default function ResumeWorkspace() {
       }));
       await persistResume(resume);
       skipAutosave.current = false;
-      setMode("resume");
+      router.push(workspaceHref("resume"));
       setShowImport(false);
       setImportText("");
       setMobileTab("draft");
@@ -548,7 +593,7 @@ export default function ResumeWorkspace() {
       }));
       await persistResume(resume);
       skipAutosave.current = false;
-      setMode("resume");
+      router.push(workspaceHref("resume"));
       setShowImport(false);
       setMobileTab("draft");
     } catch (error) {
@@ -682,35 +727,12 @@ export default function ResumeWorkspace() {
         </div>
       </div>
 
-      {/* Mode switcher */}
-      <div className="mt-4 flex flex-wrap gap-2 shrink-0">
-        {(
-          [
-            ["resume", t("aiPage.modeResume")],
-            ["hh", t("aiPage.modeHh")],
-            ["cover_letter", t("aiPage.modeCover")],
-            ["interview", t("aiPage.modeInterview")],
-            ["mock_interview", t("aiPage.modeMock")],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => switchMode(id)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-              mode === id
-                ? "bg-cyan-500 text-black"
-                : "bg-white/5 text-white/60 hover:text-white border border-white/10"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* Vacancy context — shared across all modes */}
+      <div className="mt-4 rounded-3xl border border-white/10 bg-white/[0.03] p-4 md:p-5 shrink-0">
+        <h2 className="text-sm font-bold text-cyan-300">{t("aiPage.vacancyContextTitle")}</h2>
+        <p className="text-white/45 text-xs mt-1 mb-3">{t("aiPage.vacancyContextHint")}</p>
 
-      {/* Job context for cover / interview / mock (not HH) */}
-      {mode !== "resume" && mode !== "hh" ? (
-        <div className="mt-4 grid md:grid-cols-4 gap-3 shrink-0">
+        <div className="grid md:grid-cols-2 gap-3">
           <input
             value={jobTitle}
             onChange={(e) => setJobTitle(e.target.value)}
@@ -723,55 +745,35 @@ export default function ResumeWorkspace() {
             placeholder={t("aiPage.company")}
             className="px-4 py-2 rounded-2xl bg-white/5 border border-white/10 text-sm outline-none"
           />
-          {mode === "cover_letter" ? (
-            <select
-              value={tone}
-              onChange={(e) => setTone(e.target.value)}
-              className="px-4 py-2 rounded-2xl bg-white/5 border border-white/10 text-sm outline-none"
-            >
-              <option value="professional">{t("aiPage.toneProfessional")}</option>
-              <option value="friendly">{t("aiPage.toneFriendly")}</option>
-              <option value="creative">{t("aiPage.toneCreative")}</option>
-            </select>
-          ) : (
-            <select
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-              className="px-4 py-2 rounded-2xl bg-white/5 border border-white/10 text-sm outline-none"
-            >
-              <option value="easy">{t("aiPage.difficultyEasy")}</option>
-              <option value="medium">{t("aiPage.difficultyMedium")}</option>
-              <option value="hard">{t("aiPage.difficultyHard")}</option>
-            </select>
-          )}
-          {mode === "mock_interview" ? (
-            <button
-              type="button"
-              onClick={() => void startMockInterview()}
-              disabled={loading || !jobTitle.trim()}
-              className="px-4 py-2 rounded-2xl bg-cyan-500 text-black text-sm font-bold disabled:opacity-50"
-            >
-              {loading ? t("aiPage.thinking") : t("aiPage.mockStart")}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void handleGenerate()}
-              disabled={generating || !jobTitle.trim()}
-              className="px-4 py-2 rounded-2xl bg-cyan-500 text-black text-sm font-bold disabled:opacity-50"
-            >
-              {generating ? t("aiPage.generating") : t("aiPage.generate")}
-            </button>
-          )}
           <textarea
             value={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
-            placeholder={t("aiPage.jobDescription")}
-            rows={2}
-            className="md:col-span-4 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 text-sm outline-none resize-none"
+            placeholder={t("aiPage.vacancyPastePlaceholder")}
+            rows={5}
+            className="md:col-span-2 px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-sm outline-none resize-none leading-relaxed"
           />
-          {mode === "mock_interview" ? (
-            <div className="md:col-span-4 flex flex-wrap gap-2">
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {mode === "resume" ? (
+            <button
+              type="button"
+              onClick={() => void handleAdaptToVacancy()}
+              disabled={adapting || !hasVacancyContext}
+              className="px-4 py-2 rounded-2xl bg-cyan-500 text-black text-sm font-bold disabled:opacity-50"
+            >
+              {adapting ? t("aiPage.hhAdapting") : t("aiPage.hhAdapt")}
+            </button>
+          ) : mode === "mock_interview" ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void startMockInterview()}
+                disabled={loading || !jobTitle.trim()}
+                className="px-4 py-2 rounded-2xl bg-cyan-500 text-black text-sm font-bold disabled:opacity-50"
+              >
+                {loading ? t("aiPage.thinking") : t("aiPage.mockStart")}
+              </button>
               <button
                 type="button"
                 onClick={() => void finishMockInterview()}
@@ -780,32 +782,53 @@ export default function ResumeWorkspace() {
               >
                 {t("aiPage.mockFinish")}
               </button>
-              <p className="text-xs text-white/40 self-center">
-                {t("aiPage.mockHint")}
-              </p>
-            </div>
-          ) : null}
+              <select
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value)}
+                className="px-4 py-2 rounded-2xl bg-white/5 border border-white/10 text-sm outline-none"
+              >
+                <option value="easy">{t("aiPage.difficultyEasy")}</option>
+                <option value="medium">{t("aiPage.difficultyMedium")}</option>
+                <option value="hard">{t("aiPage.difficultyHard")}</option>
+              </select>
+              <p className="text-xs text-white/40">{t("aiPage.mockHint")}</p>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => void handleGenerate()}
+                disabled={generating || !jobTitle.trim()}
+                className="px-4 py-2 rounded-2xl bg-cyan-500 text-black text-sm font-bold disabled:opacity-50"
+              >
+                {generating ? t("aiPage.generating") : t("aiPage.generate")}
+              </button>
+              {mode === "cover_letter" ? (
+                <select
+                  value={tone}
+                  onChange={(e) => setTone(e.target.value)}
+                  className="px-4 py-2 rounded-2xl bg-white/5 border border-white/10 text-sm outline-none"
+                >
+                  <option value="professional">{t("aiPage.toneProfessional")}</option>
+                  <option value="friendly">{t("aiPage.toneFriendly")}</option>
+                  <option value="creative">{t("aiPage.toneCreative")}</option>
+                </select>
+              ) : (
+                <select
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                  className="px-4 py-2 rounded-2xl bg-white/5 border border-white/10 text-sm outline-none"
+                >
+                  <option value="easy">{t("aiPage.difficultyEasy")}</option>
+                  <option value="medium">{t("aiPage.difficultyMedium")}</option>
+                  <option value="hard">{t("aiPage.difficultyHard")}</option>
+                </select>
+              )}
+            </>
+          )}
         </div>
-      ) : null}
+      </div>
 
-      {mode === "hh" ? (
-        <HhJobsPanel
-          resumeDraft={modes.resume.draft}
-          onAdapted={(adapted, _notes) => {
-            skipAutosave.current = true;
-            setModes((prev) => ({
-              ...prev,
-              resume: { ...prev.resume, draft: adapted },
-            }));
-            void persistResume(adapted).finally(() => {
-              skipAutosave.current = false;
-            });
-            setMode("resume");
-            setMobileTab("draft");
-          }}
-        />
-      ) : (
-        <>
       {/* Mobile tabs */}
       <div className="mt-4 flex gap-2 lg:hidden shrink-0">
         <button
@@ -951,8 +974,6 @@ export default function ResumeWorkspace() {
           />
         </section>
       </div>
-        </>
-      )}
 
       {/* Import modal */}
       {showImport ? (

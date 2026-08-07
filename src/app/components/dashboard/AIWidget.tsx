@@ -12,7 +12,7 @@ export default function AIWidget() {
       </p>
 
       <Link
-        href="/dashboard/student/ai"
+        href="/dashboard/student/ai/resume"
         className="mt-6 inline-flex h-12 items-center justify-center rounded-2xl bg-cyan-500 px-6 font-bold text-black hover:bg-cyan-400 transition"
       >
         Open resume assistant

@@ -653,7 +653,9 @@ class HhAdaptResumeView(APIView):
     """
     POST /api/v1/ai/hh/adapt-resume/
     {
-      "vacancy_id": "123" | "demo-php-1",
+      "vacancy_text": "...",               # pasted vacancy description (preferred)
+      "vacancy_title": "PHP Developer",    # optional label for pasted text
+      "vacancy_id": "123" | "demo-php-1",  # legacy HH API flow
       "url": "https://hh.kz/vacancy/123",  # optional
       "resume": "...",                     # optional, else saved resume
       "save": true,
@@ -668,6 +670,12 @@ class HhAdaptResumeView(APIView):
         language = _request_language(request)
         vacancy_id = request.data.get("vacancy_id") or ""
         url = request.data.get("url") or ""
+        pasted_text = (
+            request.data.get("vacancy_text")
+            or request.data.get("vacancy_description")
+            or ""
+        ).strip()
+        vacancy_title = (request.data.get("vacancy_title") or "").strip()
         save = str(request.data.get("save", "true")).lower() not in ("0", "false", "no")
         resume_text = (
             request.data.get("resume")
@@ -675,20 +683,43 @@ class HhAdaptResumeView(APIView):
             or ""
         )
 
-        vid = extract_vacancy_id(str(vacancy_id)) or extract_vacancy_id(url) or str(vacancy_id).strip()
-        if not vid:
-            return Response(
-                {"message": "vacancy_id or url is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if not pasted_text:
+            vid = extract_vacancy_id(str(vacancy_id)) or extract_vacancy_id(url) or str(vacancy_id).strip()
+            if not vid:
+                return Response(
+                    {"message": "vacancy_text or vacancy_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            vid = ""
 
         if not resume_text:
             resume, _ = Resume.objects.get_or_create(user=request.user)
             resume_text = resume.content or ""
 
         try:
-            vacancy = get_vacancy(vid)
-            vacancy_text = vacancy_to_prompt_text(vacancy)
+            if pasted_text:
+                vacancy = {
+                    "id": "pasted",
+                    "name": vacancy_title or "Vacancy",
+                    "company": "",
+                    "area": "",
+                    "salary": "",
+                    "requirement": "",
+                    "responsibility": "",
+                    "url": "",
+                    "published_at": "",
+                    "source": "paste",
+                    "description": pasted_text,
+                    "skills": [],
+                    "experience": "",
+                    "employment": "",
+                    "demo": False,
+                }
+                vacancy_text = pasted_text
+            else:
+                vacancy = get_vacancy(vid)
+                vacancy_text = vacancy_to_prompt_text(vacancy)
             result = adapt_resume_to_vacancy(
                 resume_text=resume_text,
                 vacancy_text=vacancy_text,

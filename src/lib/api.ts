@@ -421,8 +421,7 @@ export type WorkspaceMode =
   | "resume"
   | "cover_letter"
   | "interview"
-  | "mock_interview"
-  | "hh";
+  | "mock_interview";
 
 export type AiResumeChatResponse = {
   chat_id: number;
@@ -678,7 +677,9 @@ export async function hhGetVacancy(vacancyId: string) {
 }
 
 export async function hhAdaptResume(params: {
-  vacancyId: string;
+  vacancyId?: string;
+  vacancyText?: string;
+  vacancyTitle?: string;
   resume?: string;
   language?: string;
   save?: boolean;
@@ -695,7 +696,9 @@ export async function hhAdaptResume(params: {
     auth: true,
     lang: params.language,
     body: JSON.stringify({
-      vacancy_id: params.vacancyId,
+      vacancy_id: params.vacancyId || "",
+      vacancy_text: params.vacancyText || "",
+      vacancy_title: params.vacancyTitle || "",
       resume: params.resume || "",
       language: params.language,
       save: params.save !== false,
