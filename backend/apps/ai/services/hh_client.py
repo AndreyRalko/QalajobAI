@@ -1,13 +1,18 @@
 """
 HeadHunter (hh.ru / hh.kz) API client.
-Public vacancy search usually requires a registered app User-Agent
-and may require an application token (HH_APP_TOKEN) depending on HH policy.
+
+GET /vacancies and GET /vacancies/{id} currently require an approved app
+and a Bearer token (HH_APP_TOKEN or OAuth client_credentials).
+GET /areas remains available without a token.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import re
+import time
+from pathlib import Path
 from typing import Any, Optional
 
 import requests
@@ -16,6 +21,10 @@ from django.conf import settings
 logger = logging.getLogger("apps")
 
 HH_API_BASE = "https://api.hh.ru"
+HH_OAUTH_TOKEN_URL = "https://hh.ru/oauth/token"
+TOKEN_FILE = Path(__file__).resolve().parents[3] / ".hh_app_token.json"
+
+_token_cache: dict[str, Any] = {"access_token": "", "expires_at": 0.0}
 VACANCY_URL_RE = re.compile(
     r"(?:https?://)?(?:[\w.-]*\.)?hh\.(?:ru|kz|uz|by)/(?:vacancy|vacancies)/(\d+)",
     re.IGNORECASE,
@@ -125,8 +134,107 @@ def _user_agent() -> str:
     )
 
 
+def _load_token_file() -> tuple[str, float]:
+    try:
+        if not TOKEN_FILE.exists():
+            return "", 0.0
+        data = json.loads(TOKEN_FILE.read_text(encoding="utf-8"))
+        return str(data.get("access_token") or "").strip(), float(data.get("expires_at") or 0)
+    except Exception:
+        return "", 0.0
+
+
+def _save_token_file(token: str, expires_at: float) -> None:
+    try:
+        TOKEN_FILE.write_text(
+            json.dumps({"access_token": token, "expires_at": expires_at}),
+            encoding="utf-8",
+        )
+    except Exception as e:
+        logger.warning("Could not persist HH app token: %s", e)
+
+
+def _cached_token() -> str:
+    now = time.time()
+    mem = str(_token_cache.get("access_token") or "")
+    mem_exp = float(_token_cache.get("expires_at") or 0)
+    if mem and now < mem_exp - 60:
+        return mem
+
+    file_token, file_exp = _load_token_file()
+    if file_token and now < file_exp - 60:
+        _token_cache["access_token"] = file_token
+        _token_cache["expires_at"] = file_exp
+        return file_token
+
+    if file_token:
+        # Expired or HH refused a refresh — still better than no token
+        _token_cache["access_token"] = file_token
+        _token_cache["expires_at"] = file_exp
+        return file_token
+    return ""
+
+
+def _store_token(token: str, ttl: int) -> str:
+    expires_at = time.time() + max(int(ttl or 1209600), 60)
+    _token_cache["access_token"] = token
+    _token_cache["expires_at"] = expires_at
+    _save_token_file(token, expires_at)
+    return token
+
+
 def _app_token() -> str:
-    return str(getattr(settings, "HH_APP_TOKEN", "") or "").strip()
+    static = str(getattr(settings, "HH_APP_TOKEN", "") or "").strip()
+    if static:
+        return static
+    return _oauth_app_token()
+
+
+def _oauth_app_token() -> str:
+    client_id = str(getattr(settings, "HH_CLIENT_ID", "") or "").strip()
+    client_secret = str(getattr(settings, "HH_CLIENT_SECRET", "") or "").strip()
+    if not client_id or not client_secret:
+        return ""
+
+    cached = _cached_token()
+    now = time.time()
+    expires_at = float(_token_cache.get("expires_at") or 0)
+    if cached and now < expires_at - 60:
+        return cached
+
+    try:
+        response = requests.post(
+            HH_OAUTH_TOKEN_URL,
+            data={
+                "grant_type": "client_credentials",
+                "client_id": client_id,
+                "client_secret": client_secret,
+            },
+            headers={
+                "User-Agent": _user_agent(),
+                "HH-User-Agent": _user_agent(),
+            },
+            timeout=25,
+        )
+    except requests.RequestException as e:
+        logger.error("HH OAuth token request failed: %s", e)
+        return cached
+
+    if not response.ok:
+        body = response.text[:300]
+        logger.error("HH OAuth error %s: %s", response.status_code, body)
+        # HH issues one app token at a time and rejects frequent refresh.
+        if "refresh too early" in body.lower() and cached:
+            logger.warning("HH token refresh too early — reusing cached app token")
+            return cached
+        return cached
+
+    data = response.json()
+    token = str(data.get("access_token") or "").strip()
+    ttl = int(data.get("expires_in") or 1209600)
+    if token:
+        return _store_token(token, ttl)
+    return cached
 
 
 def _use_demo() -> bool:
@@ -175,7 +283,12 @@ def _request(path: str, params: Optional[dict] = None) -> dict[str, Any]:
     if response.status_code == 403:
         raise PermissionError(
             "HeadHunter API forbidden. Register an app at https://dev.hh.ru "
-            "and set HH_USER_AGENT / HH_APP_TOKEN in backend/.env"
+            "and set HH_CLIENT_ID / HH_CLIENT_SECRET (or HH_APP_TOKEN) in backend/.env"
+        )
+    if response.status_code == 400 and "bad_user_agent" in (response.text or "").lower():
+        raise PermissionError(
+            "HeadHunter rejected User-Agent. Use format AppName/1.0 (email@domain) "
+            "matching the registered application."
         )
     if response.status_code == 404:
         raise LookupError("Vacancy not found")
@@ -315,10 +428,26 @@ def search_vacancies(
             "per_page": data.get("per_page") or per_page,
             "demo": False,
         }
-    except PermissionError:
+    except PermissionError as e:
         # Graceful fallback so product remains usable while token is configured
         logger.warning("HH vacancies forbidden — serving demo results")
         items = [normalize_list_item(v) for v in DEMO_VACANCIES]
+        has_creds = bool(
+            str(getattr(settings, "HH_CLIENT_ID", "") or "").strip()
+            and str(getattr(settings, "HH_CLIENT_SECRET", "") or "").strip()
+        )
+        warning = str(e)
+        if has_creds and not _app_token():
+            warning = (
+                "HH отказал в новом токене приложения (refresh too early). "
+                "Скопируйте текущий access token с https://dev.hh.ru "
+                "в HH_APP_TOKEN в backend/.env и перезапустите сервер."
+            )
+        elif has_creds:
+            warning = (
+                "HeadHunter API вернул 403 даже с токеном. "
+                "Проверьте User-Agent — он должен совпадать с названием приложения на dev.hh.ru."
+            )
         return {
             "items": items,
             "found": len(items),
@@ -326,10 +455,7 @@ def search_vacancies(
             "pages": 1,
             "per_page": per_page,
             "demo": True,
-            "warning": (
-                "HeadHunter API returned 403. Showing demo vacancies. "
-                "Register at https://dev.hh.ru and set HH_APP_TOKEN."
-            ),
+            "warning": warning,
         }
 
 

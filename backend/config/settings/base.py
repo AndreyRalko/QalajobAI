@@ -255,6 +255,8 @@ AI_RATE_LIMIT_PER_HOUR = env.int('AI_RATE_LIMIT_PER_HOUR', default=100)
 # HeadHunter API (https://dev.hh.ru)
 HH_USER_AGENT = env('HH_USER_AGENT', default='QalaJobAI/1.0 (noreply@qalajob.kz)')
 HH_APP_TOKEN = env('HH_APP_TOKEN', default='')
+HH_CLIENT_ID = env('HH_CLIENT_ID', default='')
+HH_CLIENT_SECRET = env('HH_CLIENT_SECRET', default='')
 HH_AREA = env('HH_AREA', default='40')  # 40 = Kazakhstan
 HH_USE_DEMO = env.bool('HH_USE_DEMO', default=False)
 

@@ -187,17 +187,19 @@ def _resume_assistant_post(request, error_label: str):
         # For a fresh mock interview start, prefer empty history if client sends chat_id=null
         # and an explicit reset flag.
         force_new = bool(request.data.get("new_session") or request.data.get("reset"))
-        if force_new and mode == "mock_interview":
+        if force_new and mode in ("mock_interview", "interview"):
             chat_id = None
 
         topic = message
         if mode == "mock_interview" and job_title:
             topic = f"Mock: {job_title}"[:100]
+        elif mode == "interview" and job_title:
+            topic = f"Interview: {job_title}"[:100]
 
         chat = _get_or_create_chat(request.user, chat_id, topic, mode)
 
         stored = _normalize_messages(chat.messages)
-        if force_new and mode == "mock_interview":
+        if force_new and mode in ("mock_interview", "interview"):
             history_for_ai = []
             messages = []
         else:
@@ -213,7 +215,7 @@ def _resume_assistant_post(request, error_label: str):
         )
 
         draft_for_ai = document_draft
-        if force_new and mode == "mock_interview":
+        if force_new and mode in ("mock_interview", "interview"):
             draft_for_ai = ""
 
         result = resume_assistant_chat(

@@ -5,11 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVacancyContext } from "@/app/dashboard/student/ai/vacancy-context";
+import HhVacancyPicker from "@/app/components/dashboard/HhVacancyPicker";
 import {
   aiGenerateCoverLetter,
   aiImportResumePdf,
   aiImportResumeText,
-  aiInterviewPrep,
   aiResumeAssistant,
   aiResumeEnhance,
   getMyResume,
@@ -376,9 +376,86 @@ export default function ResumeWorkspace({ mode }: Props) {
     }
   };
 
+  const startInterviewRehearsal = async (vacancy?: {
+    title?: string;
+    company?: string;
+    description?: string;
+  }) => {
+    if (!authed || loading) return;
+    const role = (vacancy?.title || jobTitle).trim();
+    if (!role) {
+      alert(t("aiPage.mockNeedRole"));
+      return;
+    }
+    const companyName = (vacancy?.company || company).trim();
+    const description = (vacancy?.description || jobDescription).trim();
+    const starter = t("aiPage.interviewRehearsalStart");
+
+    setMobileTab("chat");
+    setQuestion("");
+    setLoading(true);
+    aiBusy.current = true;
+    setModes((prev) => ({
+      ...prev,
+      interview: { chatId: null, messages: [], draft: "" },
+    }));
+
+    try {
+      const data = await aiResumeAssistant(
+        starter,
+        [],
+        locale,
+        "",
+        null,
+        "interview",
+        modes.resume.draft,
+        {
+          jobTitle: role,
+          company: companyName,
+          jobDescription: description,
+          newSession: true,
+        }
+      );
+      setModes((prev) => ({
+        ...prev,
+        interview: {
+          chatId: data.chat_id || null,
+          messages: data.messages?.length
+            ? data.messages
+            : [
+                { role: "user", content: starter },
+                {
+                  role: "assistant",
+                  content: data.reply || t("aiPage.noResponse"),
+                },
+              ],
+          draft: data.document_draft || "",
+        },
+      }));
+    } catch (error) {
+      console.error(error);
+      setModes((prev) => ({
+        ...prev,
+        interview: {
+          chatId: null,
+          draft: "",
+          messages: [{ role: "assistant", content: t("aiPage.aiError") }],
+        },
+      }));
+    } finally {
+      setLoading(false);
+      aiBusy.current = false;
+    }
+  };
+
   const handleGenerate = async () => {
     if (!authed || generating) return;
     if (!jobTitle.trim()) return;
+
+    if (mode === "interview") {
+      await startInterviewRehearsal();
+      return;
+    }
 
     setGenerating(true);
     aiBusy.current = true;
@@ -401,25 +478,6 @@ export default function ResumeWorkspace({ mode }: Props) {
             messages: [
               ...prev.cover_letter.messages,
               { role: "assistant", content: t("aiPage.coverGenerated") },
-            ],
-          },
-        }));
-      } else if (mode === "interview") {
-        const data = await aiInterviewPrep({
-          jobTitle: jobTitle.trim(),
-          company: company.trim(),
-          requirements: jobDescription.trim(),
-          difficulty,
-          language: locale,
-        });
-        setModes((prev) => ({
-          ...prev,
-          interview: {
-            ...prev.interview,
-            draft: data.document_draft || "",
-            messages: [
-              ...prev.interview.messages,
-              { role: "assistant", content: t("aiPage.interviewGenerated") },
             ],
           },
         }));
@@ -731,6 +789,21 @@ export default function ResumeWorkspace({ mode }: Props) {
       <div className="mt-4 rounded-3xl border border-white/10 bg-white/[0.03] p-4 md:p-5 shrink-0">
         <h2 className="text-sm font-bold text-cyan-300">{t("aiPage.vacancyContextTitle")}</h2>
         <p className="text-white/45 text-xs mt-1 mb-3">{t("aiPage.vacancyContextHint")}</p>
+
+        <HhVacancyPicker
+          onSelect={({ title, company: companyName, description }) => {
+            if (title) setJobTitle(title);
+            if (companyName) setCompany(companyName);
+            if (description) setJobDescription(description);
+            if (mode === "interview") {
+              void startInterviewRehearsal({
+                title,
+                company: companyName,
+                description,
+              });
+            }
+          }}
+        />
 
         <div className="grid md:grid-cols-2 gap-3">
           <input

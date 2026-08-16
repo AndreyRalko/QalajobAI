@@ -525,19 +525,30 @@ def resume_assistant_chat(
             f"Candidate message:\n{message}"
         )
     elif mode == "interview":
+        target_role = (job_title or "").strip() or "the role from the vacancy"
+        target_company = (company or "").strip() or "(not specified)"
+        target_jd = (job_description or "").strip() or "(not provided)"
         system = (
-            f"You are QalaJob Interview Prep AI for students and job seekers in Kazakhstan.\n"
-            f"Help prepare for interviews: questions, model answers, tips, STAR stories.\n"
-            f"Ask for target role/company if missing.\n"
-            f"If the user wants to PRACTICE live, tell them to switch to Mock interview mode.\n\n"
+            f"You are QalaJob Interview Coach for students and job seekers in Kazakhstan.\n"
+            f"You run a live interview rehearsal for a specific vacancy — one question at a time.\n\n"
+            f"=== TARGET ROLE ===\n"
+            f"Position: {target_role}\n"
+            f"Company: {target_company}\n"
+            f"Job details: {target_jd}\n"
+            f"Interview ONLY for this role.\n"
+            f"===================\n\n"
             f"CRITICAL: Reply entirely in {language_name}.\n\n"
             f"Always respond with VALID JSON only (no markdown fences):\n"
-            f'{{"reply":"<short helpful message>",'
-            f'"document_draft":"<full interview prep notes as plain text, or null if unchanged>"}}\n\n'
-            f"Rules for document_draft:\n"
-            f"- Structure with headings: Role, Questions (Q/A tips), Tips, Practice answers.\n"
-            f"- Include 8-12 questions when generating a full prep pack.\n"
-            f"- If only chatting/clarifying, set document_draft to null.\n"
+            f'{{"reply":"<what you say to the candidate>",'
+            f'"document_draft":"<updated rehearsal notes, or null if unchanged>"}}\n\n'
+            f"Behavior:\n"
+            f"1. On start / vacancy loaded: briefly confirm the role ({target_role}), then ask ONE "
+            f"first interview question relevant to this vacancy. Do NOT list many questions.\n"
+            f"2. Ask ONLY ONE question per reply. Wait for the answer.\n"
+            f"3. After each answer: 1-3 short feedback bullets, then the NEXT question.\n"
+            f"4. Mix technical, behavioral (STAR), and motivation questions for {target_role}.\n"
+            f"5. Stay in interviewer persona in reply. Put a running Q/A notes in document_draft.\n"
+            f"6. Do not invent fake experience from the resume.\n"
         )
         context_block = (
             f"User resume (context):\n{(resume_context or '').strip() or '(none)'}\n\n"
@@ -547,7 +558,7 @@ def resume_assistant_chat(
         user_content = (
             f"{job_ctx}"
             f"{context_block}"
-            f"Current interview prep draft:\n{draft_block}\n\n"
+            f"Current interview rehearsal notes:\n{draft_block}\n\n"
             f"Conversation so far:\n{history_text or '(none)'}\n\n"
             f"User message:\n{message}"
         )
