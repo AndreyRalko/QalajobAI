@@ -21,6 +21,7 @@ import logging
 
 from django.contrib.auth import authenticate, update_session_auth_hash
 from django.contrib.auth.models import User
+from django.db.models import Q
 
 from drf_spectacular.utils import extend_schema
 
@@ -35,6 +36,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 from .models import UserProfile, LoginHistory
+from .pagination import UsersPageNumberPagination
 from .serializers import (
     LoginSerializer,
     SetLanguageSerializer,
@@ -368,7 +370,30 @@ class DeleteAccountView(APIView):
 class UsersListView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserProfileSerializer
-    pagination_class = None
+    pagination_class = UsersPageNumberPagination
 
     def get_queryset(self):
-        return UserProfile.objects.select_related("user").all()
+        qs = UserProfile.objects.select_related("user").all().order_by(
+            "-user__date_joined", "-id"
+        )
+
+        role = (self.request.query_params.get("role") or "").strip().lower()
+        if role and role != "all":
+            qs = qs.filter(role=role)
+
+        banned = (self.request.query_params.get("banned") or "").strip().lower()
+        if banned in ("true", "1", "yes"):
+            qs = qs.filter(is_banned=True)
+        elif banned in ("false", "0", "no"):
+            qs = qs.filter(is_banned=False)
+
+        search = (self.request.query_params.get("search") or "").strip()
+        if search:
+            qs = qs.filter(
+                Q(user__username__icontains=search)
+                | Q(user__first_name__icontains=search)
+                | Q(user__last_name__icontains=search)
+                | Q(user__email__icontains=search)
+            )
+
+        return qs

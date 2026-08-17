@@ -126,6 +126,7 @@ export interface AiActionLog {
   endpoint: string;
   status: "success" | "failed" | "demo";
   model_name: string;
+  provider: string;
   duration_ms: number;
   request_payload: Record<string, unknown>;
   ai_input: Record<string, unknown>;

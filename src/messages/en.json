@@ -700,6 +700,11 @@
       "bannedBadge": "BANNED",
       "activeBadge": "ACTIVE",
       "inactiveBadge": "INACTIVE",
+      "page": "Page",
+      "of": "of",
+      "prevPage": "Previous",
+      "nextPage": "Next",
+      "showing": "Showing",
       "statusBanned": "Banned",
       "statusActive": "Active",
       "statusInactive": "Inactive"

@@ -358,8 +358,27 @@ export async function unsaveJob(id: number) {
 
 // ── Users (Admin) ───────────────────────────────────────────────────
 
-export async function getUsers() {
-  return apiRequest<ApiUser[]>("/users/", { auth: true });
+export interface PaginatedUsersResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ApiUser[];
+}
+
+export async function getUsers(params?: {
+  page?: number;
+  search?: string;
+  role?: string;
+  banned?: boolean;
+}) {
+  const query = new URLSearchParams();
+  if (params?.page) query.set("page", String(params.page));
+  if (params?.search?.trim()) query.set("search", params.search.trim());
+  if (params?.role && params.role !== "all") query.set("role", params.role);
+  if (params?.banned === true) query.set("banned", "true");
+  if (params?.banned === false) query.set("banned", "false");
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return apiRequest<PaginatedUsersResponse>(`/users/${suffix}`, { auth: true });
 }
 
 export async function deleteUser(userId: string) {

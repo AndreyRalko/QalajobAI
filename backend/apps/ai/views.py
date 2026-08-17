@@ -30,6 +30,8 @@ from .models import (
     CareerCoachChat,
     AIUsageStatistics,
 )
+from .api_views import _normalize_messages
+from .request_utils import request_language
 from .services.action_log import ai_log_binding
 from .services.candidate_context import build_candidate_context
 from .services.job_recommendations import get_hh_job_recommendations
@@ -102,6 +104,7 @@ class AIViewSet(viewsets.ViewSet):
                 feature=AIFeatureType.RESUME_ANALYSIS,
                 endpoint="analyze-resume",
                 request_payload=request.data,
+                language=request_language(request),
             ):
                 result = ai_analyze_resume(resume_text, target_role)
 
@@ -193,6 +196,7 @@ class AIViewSet(viewsets.ViewSet):
                 feature=AIFeatureType.VACANCY_MATCHING,
                 endpoint="match-vacancies",
                 request_payload=request.data,
+                language=request_language(request),
             ):
                 result = ai_match_vacancy(candidate_data, vacancy_data)
 
@@ -275,6 +279,7 @@ class AIViewSet(viewsets.ViewSet):
             feature=AIFeatureType.JOB_RECOMMENDATIONS,
             endpoint="job-recommendations",
             request_payload=request.data,
+            language=language,
         ):
             result = get_hh_job_recommendations(
                 candidate,
@@ -347,6 +352,7 @@ class AIViewSet(viewsets.ViewSet):
                 feature=AIFeatureType.COVER_LETTER,
                 endpoint="generate-cover-letter",
                 request_payload=request.data,
+                language=request_language(request),
             ):
                 result = ai_generate_cover_letter(candidate_data, vacancy_data, tone)
 
@@ -418,6 +424,7 @@ class AIViewSet(viewsets.ViewSet):
                 feature=AIFeatureType.INTERVIEW_PREP,
                 endpoint="interview-preparation",
                 request_payload=request.data,
+                language=request_language(request),
             ):
                 result = ai_prepare_interview(vacancy_data, difficulty)
 
@@ -484,6 +491,7 @@ class AIViewSet(viewsets.ViewSet):
                 feature=AIFeatureType.SKILL_GAP,
                 endpoint="analyze-skill-gap",
                 request_payload=request.data,
+                language=request_language(request),
             ):
                 result = ai_analyze_skill_gap(current_skills, target_role)
 
@@ -567,6 +575,7 @@ class AIViewSet(viewsets.ViewSet):
                 feature=AIFeatureType.CAREER_COACH,
                 endpoint="career-coach-chat",
                 request_payload=request.data,
+                language=language,
             ):
                 reply = ai_career_chat(
                     message,

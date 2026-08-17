@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 from apps.resumes.models import Resume
 
 from .models import AIFeatureType, CareerCoachChat, CoverLetterGeneration, InterviewPrep
+from .request_utils import request_language as _request_language
 from .services.action_log import ai_log_binding
 from .services.openai_client import (
     adapt_resume_to_vacancy,
@@ -43,30 +44,6 @@ VALID_MODES = frozenset({"resume", "cover_letter", "interview", "mock_interview"
 
 class AIRateThrottle(UserRateThrottle):
     rate = "100/hour"
-
-
-def _request_language(request) -> str:
-    lang = ""
-    if hasattr(request, "data") and request.data is not None:
-        try:
-            lang = (
-                request.data.get("language")
-                or request.data.get("locale")
-                or ""
-            )
-        except Exception:
-            lang = ""
-    if not lang:
-        header = request.headers.get("Accept-Language", "")
-        if header:
-            lang = header.split(",")[0].strip()
-    if not lang:
-        try:
-            profile = request.user.profile
-            lang = getattr(profile, "language", None) or "kk"
-        except Exception:
-            lang = "kk"
-    return str(lang).strip() or "kk"
 
 
 def _normalize_mode(raw) -> str:
@@ -227,6 +204,7 @@ def _resume_assistant_post(request, error_label: str):
             feature=AIFeatureType.CAREER_COACH,
             endpoint=endpoint,
             request_payload=request.data,
+            language=language,
         ):
             result = resume_assistant_chat(
                 message,
@@ -339,6 +317,7 @@ class AssistantChatView(APIView):
                 feature=AIFeatureType.ASSISTANT,
                 endpoint="assistant",
                 request_payload=request.data,
+                language=language,
             ):
                 reply = assistant_chat(message, history=history, language=language)
             if not reply:
@@ -376,6 +355,7 @@ class ResumeEnhanceView(APIView):
                 feature=AIFeatureType.RESUME_ENHANCEMENT,
                 endpoint="resume-enhance",
                 request_payload=request.data,
+                language=language,
             ):
                 enhanced = enhance_resume(resume_text, language=language)
             if not enhanced:
@@ -434,6 +414,7 @@ class CoverLetterFreeView(APIView):
                 feature=AIFeatureType.COVER_LETTER,
                 endpoint="cover-letter",
                 request_payload=request.data,
+                language=language,
             ):
                 result = generate_cover_letter_freeform(
                     resume_text=resume_text,
@@ -507,6 +488,7 @@ class InterviewPrepFreeView(APIView):
                 feature=AIFeatureType.INTERVIEW_PREP,
                 endpoint="interview-prep",
                 request_payload=request.data,
+                language=language,
             ):
                 result = prepare_interview_freeform(
                     job_title=job_title,
@@ -606,6 +588,7 @@ class ImportResumeView(APIView):
                     "has_file": bool(upload),
                     "text_preview": raw_text[:500],
                 },
+                language=language,
             ):
                 result = structure_resume_from_text(
                     raw_text,
@@ -774,6 +757,7 @@ class HhAdaptResumeView(APIView):
                 feature=AIFeatureType.HH_ADAPT,
                 endpoint="hh-adapt-resume",
                 request_payload=request.data,
+                language=language,
             ):
                 result = adapt_resume_to_vacancy(
                     resume_text=resume_text,

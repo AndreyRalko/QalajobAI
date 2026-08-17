@@ -1,0 +1,287 @@
+================================================================================
+  QalaJob AI — пошаговая инструкция по запуску проекта
+================================================================================
+
+Монорепозиторий: Next.js (фронтенд) + Django REST (бэкенд)
+
+Сервисы:
+  Frontend (UI)     http://localhost:3000
+  Backend API       http://127.0.0.1:8000
+  Ollama (лок. AI)  http://127.0.0.1:11434
+  Redis (опц.)      порт 6379 — для Celery / LMS sync
+
+После входа студент попадает в: /dashboard/student/ai
+
+
+================================================================================
+  1. ЧТО НУЖНО УСТАНОВИТЬ
+================================================================================
+
+  Node.js   20+        — фронтенд
+  Python    3.11–3.14  — бэкенд
+  Ollama    последняя  — локальная модель Qwen2.5-7B
+  Redis     опционально — автосинхронизация LMS
+
+Если PowerShell не даёт активировать venv:
+
+  Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
+
+================================================================================
+  2. ПЕРВЫЙ ЗАПУСК (С НУЛЯ)
+================================================================================
+
+ШАГ 1 — Открыть проект
+----------------------
+  cd D:\projects\QalajobAI
+
+
+ШАГ 2 — Backend: виртуальное окружение и зависимости
+----------------------------------------------------
+  cd backend
+  python -m venv venv
+  .\venv\Scripts\Activate.ps1
+  python -m pip install --upgrade pip
+  pip install -r requirements.txt
+  New-Item -ItemType Directory -Force -Path logs | Out-Null
+
+  (Без активации venv можно вызывать: .\venv\Scripts\python.exe manage.py ...)
+
+
+ШАГ 3 — Настроить backend\.env
+-------------------------------
+  Создайте или отредактируйте файл backend\.env
+  Файл с секретами в git не коммитится.
+
+  Минимальный пример:
+
+  SECRET_KEY=dev-secret-key-change-in-production
+  ALLOWED_HOSTS=localhost,127.0.0.1
+  FRONTEND_URL=http://localhost:3000
+  CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+  TIME_ZONE=Asia/Qyzylorda
+
+  OPENAI_API_KEY=sk-your-key-here
+  OPENAI_MODEL=gpt-4o-mini
+
+  LLM_HYBRID_ENABLED=true
+  LLM_LOCAL_BASE_URL=http://127.0.0.1:11434/v1
+  LLM_LOCAL_API_KEY=ollama
+  LLM_LOCAL_MODEL=qwen2.5:7b-instruct
+  LLM_LOCAL_TIMEOUT=180
+  LLM_FALLBACK_TO_OPENAI=true
+  LLM_KK_USE_OPENAI=true
+  LLM_DEFAULT_PROVIDER=local
+
+
+ШАГ 4 — Миграции базы данных
+----------------------------
+  cd backend
+  .\venv\Scripts\Activate.ps1
+  python manage.py migrate
+
+  Используется SQLite (backend\db.sqlite3) — отдельный сервер БД не нужен.
+
+
+ШАГ 5 — Ollama и модель Qwen
+----------------------------
+  1) Скачайте Ollama: https://ollama.com
+  2) Скачайте модель:
+
+     ollama pull qwen2.5:7b-instruct
+
+  3) Проверка:
+
+     curl http://127.0.0.1:11434/v1/models
+
+  На Windows Ollama часто стартует сам в фоне после установки.
+
+
+ШАГ 6 — Frontend
+----------------
+  cd D:\projects\QalajobAI
+  npm install
+
+  Опционально создайте .env.local в корне проекта:
+
+  NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+
+
+================================================================================
+  3. ЕЖЕДНЕВНЫЙ ЗАПУСК
+================================================================================
+
+Нужно минимум 2 терминала (+ Ollama, если AI нужен).
+
+
+ТЕРМИНАЛ 1 — Ollama (если нужен AI)
+------------------------------------
+  ollama serve
+
+  Или проверьте, что модель установлена:
+
+  ollama list
+
+
+ТЕРМИНАЛ 2 — Backend
+--------------------
+  cd D:\projects\QalajobAI\backend
+  .\venv\Scripts\Activate.ps1
+  python manage.py runserver
+
+  Проверка:
+    Health:   http://127.0.0.1:8000/api/health/
+    Swagger:  http://127.0.0.1:8000/api/schema/swagger-ui/
+    Admin:    http://127.0.0.1:8000/admin/
+
+  404 на http://127.0.0.1:8000/ — это нормально (API, не сайт).
+
+
+ТЕРМИНАЛ 3 — Frontend
+---------------------
+  cd D:\projects\QalajobAI
+  npm run dev
+
+  Открыть в браузере: http://localhost:3000
+
+
+================================================================================
+  4. ТЕСТОВЫЕ АККАУНТЫ
+================================================================================
+
+  Роль          Логин            Пароль
+  ------------  ---------------  ------------
+  Студент       Иванов_Иван      Student123
+  Работодатель  Петров_Петр      Employer123
+  Админ         Сидоров_Админ    Admin1234
+
+  Админ-страницы в UI (после входа под админом):
+    Пользователи   /dashboard/admin/users
+    AI логи        /dashboard/admin/ai-logs
+    LMS sync       /dashboard/admin/lms-sync
+
+
+================================================================================
+  5. КАК РАБОТАЕТ AI (ГИБРИД)
+================================================================================
+
+  Запрос -> Django -> диспетчер -> Local (Qwen) или OpenAI
+                                    |
+                                    v (ошибка)
+                               OpenAI (fallback)
+
+  Задача                              Куда идёт
+  ----------------------------------  ---------------------------
+  Ассистент, улучшение резюме         Local (Qwen)
+  Рекомендации, skill gap, match      OpenAI
+  Career coach / cover letter (ru/en) Local, при сбое -> OpenAI
+  Career coach на kk                  OpenAI
+
+  В /dashboard/admin/ai-logs видно provider: local, openai или fallback.
+
+  Только OpenAI (без Ollama):
+    LLM_HYBRID_ENABLED=false
+
+  Только local (без fallback):
+    LLM_HYBRID_ENABLED=true
+    LLM_FALLBACK_TO_OPENAI=false
+
+
+================================================================================
+  6. LMS SYNC (ОПЦИОНАЛЬНО)
+================================================================================
+
+  Синхронизация студентов и транскриптов из MySQL вуза через SSH.
+
+  Ручной запуск:
+    cd backend
+    .\venv\Scripts\Activate.ps1
+    python manage.py sync_lms_daily
+
+  Только транскрипты:
+    python manage.py sync_lms_daily --transcripts-only
+
+  Автозапуск по расписанию (нужны Redis + Celery):
+
+    Терминал 4 — Redis:
+      redis-server
+
+    Терминал 5 — Celery:
+      cd backend
+      .\venv\Scripts\Activate.ps1
+      celery -A config worker -B -l info
+
+  Расписание в UI: /dashboard/admin/lms-sync
+
+  SSH-туннель к MySQL вуза (при отладке):
+    ssh -L 6080:localhost:6080 admin_kgu@192.168.10.2
+
+
+================================================================================
+  7. ПОЛЕЗНЫЕ КОМАНДЫ
+================================================================================
+
+  Тесты backend:
+    cd backend
+    .\venv\Scripts\python.exe manage.py test apps.ai
+
+  Создать суперпользователя Django:
+    python manage.py createsuperuser
+
+  Проверить Ollama:
+    ollama list
+
+
+================================================================================
+  8. ТИПИЧНЫЕ ПРОБЛЕМЫ
+================================================================================
+
+  AI отвечает "Demo mode"
+    -> Нет OPENAI_API_KEY и гибрид выключен (LLM_HYBRID_ENABLED=false)
+
+  AI медленный или пустой ответ
+    -> ollama list — модель установлена?
+    -> ollama pull qwen2.5:7b-instruct
+    -> Смотрите AI logs: provider и status
+    -> LLM_FALLBACK_TO_OPENAI=true для запасного OpenAI
+
+  Frontend не видит API
+    -> Backend запущен на :8000
+    -> NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+    -> Перезапустите npm run dev после смены env
+
+  Activate.ps1 не работает
+    -> Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+    -> или: .\venv\Scripts\python.exe manage.py runserver
+
+  Ошибка psycopg2 / Pillow при pip install
+    -> Используйте Python 3.11–3.12
+
+  404 на http://127.0.0.1:8000/
+    -> Нормально. Откройте :3000 или /api/health/
+
+
+================================================================================
+  9. СТРУКТУРА ПРОЕКТА
+================================================================================
+
+  QalajobAI/
+    src/                 — Next.js (UI)
+    backend/
+      apps/
+        ai/              — AI + гибрид LLM
+        lms_sync/        — синхронизация LMS
+        users/           — auth, preset users
+      config/            — settings, urls, celery
+      .env               — секреты (локально)
+      manage.py
+    package.json
+    SETUP.md             — та же инструкция (Markdown)
+    ZAPUSK_PROEKTA.txt   — этот файл
+
+  Настройки Django:
+    config.settings.dev   — локальная разработка (SQLite)
+    config.settings.server — VPS (см. DEPLOY.md)
+    config.settings.prod  — production (Postgres + HTTPS)
+
+================================================================================

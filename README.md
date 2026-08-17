@@ -10,12 +10,15 @@
 
 ## Быстрый запуск
 
-Подробно: **[SETUP.md](./SETUP.md)**.
+Подробная пошаговая инструкция: **[SETUP.md](./SETUP.md)** (Ollama, гибрид AI, LMS sync).
 
 ```powershell
+# 0 — Ollama + модель (один раз)
+ollama pull qwen2.5:7b-instruct
+
 # Terminal 1 — API
 cd backend
-.\venv\Scripts\Activate.ps1   # или: python -m venv venv && pip install -r requirements.txt
+.\venv\Scripts\Activate.ps1
 python manage.py migrate
 python manage.py runserver
 

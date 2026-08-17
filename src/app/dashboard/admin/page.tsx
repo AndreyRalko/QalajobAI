@@ -20,16 +20,24 @@ export default function AdminDashboard() {
     if (authLoading) return;
     const loadStats = async () => {
       try {
-        const [usersData, vacanciesData] = await Promise.all([
-          getUsers(),
-          getVacancies(),
-        ]);
+        const [allUsers, studentsData, employersData, bannedData, vacanciesData] =
+          await Promise.all([
+            getUsers({ page: 1 }),
+            getUsers({ page: 1, role: "student" }),
+            getUsers({ page: 1, role: "employer" }),
+            getUsers({ page: 1, banned: true }),
+            getVacancies(),
+          ]);
 
-        setUsers(usersData.length);
-        setVacanciesCount(vacanciesData.length);
-        setStudents(usersData.filter((u) => u.role === "student").length);
-        setEmployers(usersData.filter((u) => u.role === "employer").length);
-        setBannedUsers(usersData.filter((u) => u.is_banned).length);
+        setUsers(allUsers.count);
+        setStudents(studentsData.count);
+        setEmployers(employersData.count);
+        setBannedUsers(bannedData.count);
+        setVacanciesCount(
+          Array.isArray(vacanciesData)
+            ? vacanciesData.length
+            : (vacanciesData as { count?: number }).count || 0
+        );
       } catch (error) {
         console.error("Admin Dashboard Error:", error);
       } finally {

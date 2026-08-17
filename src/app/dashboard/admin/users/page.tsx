@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "@/hooks/useTranslations";
 import { getUsers, deleteUser, banUser, unbanUser } from "@/lib/api";
+
+const PAGE_SIZE = 25;
 
 interface UserData {
   id: number;
@@ -30,23 +32,42 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
-  async function loadUsers() {
+  const loadUsers = useCallback(async () => {
     try {
-      const data = await getUsers();
-      setUsers((data as any).results || data); // handle pagination if applicable
+      setLoading(true);
+      const data = await getUsers({
+        page,
+        search,
+        role: roleFilter,
+      });
+      setUsers(data.results || []);
+      setTotalCount(data.count || 0);
+      setTotalPages(Math.max(1, Math.ceil((data.count || 0) / PAGE_SIZE)));
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, search, roleFilter]);
 
   useEffect(() => {
     void loadUsers();
-  }, []);
+  }, [loadUsers]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   const handleDeleteUser = async (userId: number) => {
     const confirmed = window.confirm(t("admin.users.confirmDelete") || "Delete this user?");
@@ -54,7 +75,7 @@ export default function AdminUsersPage() {
 
     try {
       await deleteUser(userId.toString());
-      setUsers((prev) => prev.filter((user) => user.id !== userId));
+      await loadUsers();
     } catch (error) {
       console.error(error);
     }
@@ -83,21 +104,10 @@ export default function AdminUsersPage() {
     }
   };
 
-  const filteredUsers = users.filter((user) => {
-    const fullName = displayName(user).toLowerCase();
-    const keyword = search.toLowerCase();
+  const pageStart = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const pageEnd = Math.min(page * PAGE_SIZE, totalCount);
 
-    const matchesSearch =
-      fullName.includes(keyword) ||
-      user.login?.toLowerCase().includes(keyword) ||
-      user.email?.toLowerCase().includes(keyword);
-
-    const matchesRole = roleFilter === "all" ? true : user.role === roleFilter;
-
-    return matchesSearch && matchesRole;
-  });
-
-  if (loading) {
+  if (loading && users.length === 0) {
     return (
       <div className="p-10 text-white flex justify-center mt-20">
         <div className="animate-spin w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full"></div>
@@ -111,7 +121,7 @@ export default function AdminUsersPage() {
         {t("admin.users.title")}
       </h1>
       <p className="text-white/50 mt-2">
-        {t("admin.users.total")}: {users.length}
+        {t("admin.users.total")}: {totalCount}
       </p>
 
       {/* Filters */}
@@ -119,14 +129,17 @@ export default function AdminUsersPage() {
         <input
           type="text"
           placeholder={t("admin.users.searchPlaceholder")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white w-80 outline-none focus:border-indigo-500 transition"
         />
 
         <select
           value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
+          onChange={(e) => {
+            setRoleFilter(e.target.value);
+            setPage(1);
+          }}
           className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-indigo-500 outline-none transition"
         >
           <option value="all">{t("admin.users.allRoles")}</option>
@@ -150,14 +163,20 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10">
-              {filteredUsers.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="p-10 text-center text-white/40">
+                    {t("common.loading")}
+                  </td>
+                </tr>
+              ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-10 text-center text-white/40">
                     {t("common.noResults")}
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
+                users.map((user) => (
                   <tr key={user.id} className="hover:bg-white/5 transition">
                     <td className="p-5 font-medium">
                       {displayName(user) || t("admin.users.noName")}
@@ -229,6 +248,35 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
         </div>
+
+        {totalCount > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 border-t border-white/10 bg-white/[0.02]">
+            <p className="text-sm text-white/50">
+              {t("admin.users.showing")} {pageStart}–{pageEnd} {t("admin.users.of")} {totalCount}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium transition"
+              >
+                {t("admin.users.prevPage")}
+              </button>
+              <span className="text-sm text-white/60 px-2">
+                {t("admin.users.page")} {page} {t("admin.users.of")} {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium transition"
+              >
+                {t("admin.users.nextPage")}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* User Details Modal */}
@@ -265,7 +313,7 @@ export default function AdminUsersPage() {
                 </div>
               </div>
             </div>
-            
+
             <div className="mt-8 flex justify-end">
                <button
                   onClick={() => setSelectedUser(null)}

@@ -38,6 +38,7 @@ class AiActionLog(models.Model):
         db_index=True,
     )
     model_name = models.CharField(max_length=64, blank=True)
+    provider = models.CharField(max_length=16, blank=True, db_index=True)
     duration_ms = models.PositiveIntegerField(default=0)
     request_payload = models.JSONField(default=dict, blank=True)
     ai_input = models.JSONField(default=dict, blank=True)

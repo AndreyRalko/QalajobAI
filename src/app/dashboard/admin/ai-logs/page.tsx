@@ -240,7 +240,12 @@ export default function AdminAiLogsPage() {
                       <td className="p-5">
                         <StatusBadge status={log.status} t={t} />
                       </td>
-                      <td className="p-5">{log.duration_ms} ms</td>
+                      <td className="p-5">
+                        <div>{log.duration_ms} ms</div>
+                        <div className="text-xs text-white/40 mt-1">
+                          {log.provider || "—"} · {log.model_name || "—"}
+                        </div>
+                      </td>
                       <td className="p-5">
                         <button
                           type="button"

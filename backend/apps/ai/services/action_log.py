@@ -50,7 +50,18 @@ def get_student_id(user) -> str | None:
     return str(student_id).strip() if student_id else None
 
 
-def bind_ai_log(*, user, feature: str, endpoint: str, request_payload: Any = None) -> None:
+def get_ai_log_context() -> dict | None:
+    return _ai_log_context.get()
+
+
+def bind_ai_log(
+    *,
+    user,
+    feature: str,
+    endpoint: str,
+    request_payload: Any = None,
+    language: str = "",
+) -> None:
     if not user or isinstance(user, AnonymousUser) or not user.is_authenticated:
         return
     _ai_log_context.set(
@@ -59,6 +70,7 @@ def bind_ai_log(*, user, feature: str, endpoint: str, request_payload: Any = Non
             "feature": feature,
             "endpoint": endpoint,
             "request_payload": sanitize_request_payload(request_payload),
+            "language": str(language or "").strip(),
         }
     )
 
@@ -68,12 +80,20 @@ def clear_ai_log() -> None:
 
 
 @contextmanager
-def ai_log_binding(*, user, feature: str, endpoint: str, request_payload: Any = None):
+def ai_log_binding(
+    *,
+    user,
+    feature: str,
+    endpoint: str,
+    request_payload: Any = None,
+    language: str = "",
+):
     bind_ai_log(
         user=user,
         feature=feature,
         endpoint=endpoint,
         request_payload=request_payload,
+        language=language,
     )
     try:
         yield
@@ -89,6 +109,7 @@ def log_openai_exchange(
     duration_ms: int,
     status: str,
     error_message: str = "",
+    provider: str = "",
 ) -> None:
     ctx = _ai_log_context.get()
     if not ctx or not ctx.get("user"):
@@ -106,6 +127,7 @@ def log_openai_exchange(
             endpoint=ctx.get("endpoint") or "",
             status=status,
             model_name=model_name or "",
+            provider=provider or "openai",
             duration_ms=max(duration_ms, 0),
             request_payload=ctx.get("request_payload") or {},
             ai_input={"messages": _truncate(messages)},

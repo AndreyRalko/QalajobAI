@@ -700,6 +700,11 @@
       "bannedBadge": "БҰҒАТТАЛҒАН",
       "activeBadge": "БЕЛСЕНДІ",
       "inactiveBadge": "БЕЛСЕНДІ ЕМЕС",
+      "page": "Бет",
+      "of": "/",
+      "prevPage": "Артқа",
+      "nextPage": "Алға",
+      "showing": "Көрсетілуде",
       "statusBanned": "Бұғатталған",
       "statusActive": "Белсенді",
       "statusInactive": "Белсенді емес"

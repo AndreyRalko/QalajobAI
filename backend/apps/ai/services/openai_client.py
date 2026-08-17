@@ -25,32 +25,50 @@ from .prompt_guard import (
 
 logger = logging.getLogger("apps")
 
-OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 
 
 class OpenAIClient:
-    """Thin wrapper around the OpenAI Chat Completions API."""
+    """Thin wrapper around an OpenAI-compatible Chat Completions API."""
 
-    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        *,
+        base_url: Optional[str] = None,
+        timeout: Optional[int] = None,
+        provider: str = "openai",
+        require_api_key: bool = True,
+    ):
         raw_key = api_key if api_key is not None else getattr(settings, "OPENAI_API_KEY", "")
         self.api_key = str(raw_key or "").strip().strip('"').strip("'")
         self.model = model or getattr(settings, "OPENAI_MODEL", "gpt-4o-mini") or "gpt-4o-mini"
+        self.base_url = (base_url or DEFAULT_OPENAI_BASE_URL).rstrip("/")
+        self.chat_url = f"{self.base_url}/chat/completions"
+        self.timeout = timeout or getattr(settings, "LLM_OPENAI_TIMEOUT", 60)
+        self.provider = provider or "openai"
+        self.require_api_key = require_api_key
 
     def _call(
         self,
         messages: list[dict],
         temperature: float = 0.7,
         max_tokens: int = 2000,
+        *,
+        log_provider: str | None = None,
     ) -> str:
         started = time.perf_counter()
-        if not self.api_key:
-            logger.warning("OPENAI_API_KEY not configured — demo response")
+        provider_label = log_provider or self.provider
+
+        if self.require_api_key and not self.api_key:
+            logger.warning("OpenAI API key not configured — demo response")
             last_user = next(
                 (m.get("content", "") for m in reversed(messages) if m.get("role") == "user"),
                 "",
             )
             response_text = (
-                "[Demo mode] Configure OPENAI_API_KEY in backend/.env for live AI. "
+                "[Demo mode] Configure OPENAI_API_KEY or LLM_OPENAI_API_KEY in backend/.env for live AI. "
                 f"You asked: {str(last_user)[:200]}"
             )
             log_openai_exchange(
@@ -59,29 +77,32 @@ class OpenAIClient:
                 model_name=self.model,
                 duration_ms=int((time.perf_counter() - started) * 1000),
                 status="demo",
+                provider=provider_label,
             )
             return response_text
 
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
         try:
             response = requests.post(
-                OPENAI_CHAT_URL,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                },
+                self.chat_url,
+                headers=headers,
                 json={
                     "model": self.model,
                     "messages": messages,
                     "temperature": temperature,
                     "max_tokens": max_tokens,
                 },
-                timeout=60,
+                timeout=self.timeout,
             )
             duration_ms = int((time.perf_counter() - started) * 1000)
             if response.status_code >= 400:
                 error_text = response.text[:500]
                 logger.error(
-                    "OpenAI API error %s: %s",
+                    "LLM API error (%s) %s: %s",
+                    provider_label,
                     response.status_code,
                     error_text,
                 )
@@ -92,6 +113,7 @@ class OpenAIClient:
                     duration_ms=duration_ms,
                     status="failed",
                     error_message=f"HTTP {response.status_code}: {error_text}",
+                    provider=provider_label,
                 )
                 return ""
 
@@ -104,11 +126,12 @@ class OpenAIClient:
                 duration_ms=duration_ms,
                 status="success" if response_text else "failed",
                 error_message="" if response_text else "Empty AI response",
+                provider=provider_label,
             )
             return response_text
         except Exception as exc:
             duration_ms = int((time.perf_counter() - started) * 1000)
-            logger.error("OpenAI API error: %s", exc)
+            logger.error("LLM API error (%s): %s", provider_label, exc)
             log_openai_exchange(
                 messages=messages,
                 response_text="",
@@ -116,6 +139,7 @@ class OpenAIClient:
                 duration_ms=duration_ms,
                 status="failed",
                 error_message=str(exc),
+                provider=provider_label,
             )
             return ""
 
@@ -381,13 +405,20 @@ Generate a complete vacancy as JSON:
 
 # ── Service Functions ───────────────────────────────────────────────
 
-_client: Optional[OpenAIClient] = None
+_client: Optional[object] = None
 
 
-def get_client() -> OpenAIClient:
+def get_client():
     global _client
     if _client is None:
-        _client = OpenAIClient()
+        if getattr(settings, "LLM_HYBRID_ENABLED", False):
+            from .llm.hybrid import HybridLLMClient
+
+            _client = HybridLLMClient()
+        else:
+            from .llm.factory import get_openai_provider_client
+
+            _client = get_openai_provider_client()
     return _client
 
 

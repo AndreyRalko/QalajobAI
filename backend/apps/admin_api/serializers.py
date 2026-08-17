@@ -147,6 +147,7 @@ class AiActionLogSerializer(serializers.ModelSerializer):
             "endpoint",
             "status",
             "model_name",
+            "provider",
             "duration_ms",
             "request_payload",
             "ai_input",

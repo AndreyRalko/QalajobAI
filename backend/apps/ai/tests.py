@@ -278,3 +278,114 @@ class PromptGuardTests(TestCase):
         joined = " ".join(m.get("content", "") for m in history)
         self.assertNotIn("INJECTED", joined)
         self.assertNotIn("client only", joined)
+
+
+class HybridLLMTests(TestCase):
+    def tearDown(self):
+        from apps.ai.services import openai_client
+        from apps.ai.services.llm.factory import reset_llm_clients
+
+        reset_llm_clients()
+        openai_client._client = None
+
+    def test_pick_provider_routes_assistant_to_local(self):
+        from apps.ai.services.llm.router import pick_provider
+
+        with self.settings(LLM_HYBRID_ENABLED=True):
+            self.assertEqual(pick_provider("assistant", language="ru"), "local")
+
+    def test_pick_provider_routes_recommendations_to_openai(self):
+        from apps.ai.services.llm.router import pick_provider
+
+        with self.settings(LLM_HYBRID_ENABLED=True):
+            self.assertEqual(pick_provider("job_recommendations", language="ru"), "openai")
+
+    def test_pick_provider_kazakh_career_coach_uses_openai(self):
+        from apps.ai.services.llm.router import pick_provider
+
+        with self.settings(LLM_HYBRID_ENABLED=True, LLM_KK_USE_OPENAI=True):
+            self.assertEqual(pick_provider("career_coach", language="kk"), "openai")
+
+    @patch("apps.ai.services.openai_client.requests.post")
+    def test_hybrid_assistant_uses_local_ollama_url(self, mock_post):
+        from apps.ai.services.action_log import ai_log_binding
+        from apps.ai.services.openai_client import assistant_chat, get_client
+
+        get_client()
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {
+            "choices": [{"message": {"content": "Local reply"}}]
+        }
+
+        with self.settings(
+            LLM_HYBRID_ENABLED=True,
+            LLM_LOCAL_BASE_URL="http://127.0.0.1:11434/v1",
+            LLM_LOCAL_MODEL="qwen2.5:7b-instruct",
+            OPENAI_API_KEY="test-key",
+        ):
+            with ai_log_binding(
+                user=None,
+                feature="assistant",
+                endpoint="test",
+                language="ru",
+            ):
+                pass
+            from django.contrib.auth.models import User
+
+            load_preset_users()
+            user = User.objects.get(username="Иванов_Иван")
+            with ai_log_binding(
+                user=user,
+                feature="assistant",
+                endpoint="test",
+                language="ru",
+            ):
+                reply = assistant_chat("hello", language="ru")
+
+        self.assertEqual(reply, "Local reply")
+        called_url = mock_post.call_args[0][0]
+        self.assertIn("11434", called_url)
+
+    @patch("apps.ai.services.openai_client.requests.post")
+    def test_hybrid_fallback_to_openai_when_local_fails(self, mock_post):
+        from apps.ai.services.openai_client import assistant_chat, get_client
+
+        get_client()
+
+        def side_effect(url, **kwargs):
+            response = mock_post.return_value
+            if "11434" in url:
+                response.status_code = 503
+                response.text = "local down"
+                return response
+            response.status_code = 200
+            response.json.return_value = {
+                "choices": [{"message": {"content": "Cloud reply"}}]
+            }
+            return response
+
+        mock_post.side_effect = side_effect
+
+        load_preset_users()
+        from django.contrib.auth.models import User
+
+        from apps.ai.services.action_log import ai_log_binding
+
+        user = User.objects.get(username="Иванов_Иван")
+        with self.settings(
+            LLM_HYBRID_ENABLED=True,
+            LLM_LOCAL_BASE_URL="http://127.0.0.1:11434/v1",
+            LLM_FALLBACK_TO_OPENAI=True,
+            OPENAI_API_KEY="test-key",
+            LLM_OPENAI_BASE_URL="https://api.openai.com/v1",
+        ):
+            with ai_log_binding(
+                user=user,
+                feature="assistant",
+                endpoint="test",
+                language="ru",
+            ):
+                reply = assistant_chat("hello", language="ru")
+
+        self.assertEqual(reply, "Cloud reply")
+        self.assertGreaterEqual(mock_post.call_count, 2)

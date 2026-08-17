@@ -700,6 +700,11 @@
       "bannedBadge": "ЗАБЛОКИРОВАН",
       "activeBadge": "АКТИВЕН",
       "inactiveBadge": "НЕ АКТИВЕН",
+      "page": "Страница",
+      "of": "из",
+      "prevPage": "Назад",
+      "nextPage": "Далее",
+      "showing": "Показано",
       "statusBanned": "Заблокирован",
       "statusActive": "Активен",
       "statusInactive": "Не активен"
