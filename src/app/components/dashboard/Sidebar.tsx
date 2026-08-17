@@ -2,12 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useTranslations } from "@/hooks/useTranslations";
+import { getUserRole } from "@/lib/auth";
 import { WORKSPACE_MODES, workspaceHref } from "@/lib/workspace-routes";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { t } = useTranslations();
+  const [role, setRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getUserRole().then((user) => {
+      if (user?.role) setRole(user.role);
+    });
+  }, []);
 
   const workspaceItems = WORKSPACE_MODES.map((mode) => ({
     mode,
@@ -32,9 +41,14 @@ export default function Sidebar() {
 
   const bottomItems = [
     {
-      title: t("student.menu.settings"),
-      href: "/dashboard/student/settings",
-      icon: "⚙️",
+      title: t("student.menu.jobMatches"),
+      href: "/dashboard/student/jobs",
+      icon: "🎯",
+    },
+    {
+      title: t("student.menu.transcript"),
+      href: "/dashboard/student/transcript",
+      icon: "📋",
     },
   ];
 
@@ -106,6 +120,36 @@ export default function Sidebar() {
             </Link>
           );
         })}
+
+        {role === "admin" && (
+          <>
+            <p className="px-4 pt-6 pb-2 text-[11px] font-semibold uppercase tracking-wider text-white/30">
+              {t("admin.panel")}
+            </p>
+            <Link
+              href="/dashboard/admin"
+              className={`flex items-center gap-3 p-4 rounded-2xl transition-all duration-300 ${
+                isActive("/dashboard/admin")
+                  ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                  : "text-white hover:bg-white/5"
+              }`}
+            >
+              <span aria-hidden="true" className="text-lg">⚙️</span>
+              <span className="font-medium">{t("admin.menu.dashboard")}</span>
+            </Link>
+            <Link
+              href="/dashboard/admin/lms-sync"
+              className={`flex items-center gap-3 p-4 rounded-2xl transition-all duration-300 ${
+                isActive("/dashboard/admin/lms-sync")
+                  ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                  : "text-white hover:bg-white/5"
+              }`}
+            >
+              <span aria-hidden="true" className="text-lg">🔄</span>
+              <span className="font-medium">{t("admin.menu.lmsSync")}</span>
+            </Link>
+          </>
+        )}
       </nav>
 
       <div className="border-t border-white/10 pt-5">

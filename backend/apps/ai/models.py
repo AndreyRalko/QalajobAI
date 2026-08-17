@@ -10,6 +10,52 @@ class AIFeatureType(models.TextChoices):
     SKILL_GAP = 'skill_gap', 'Пробелы в навыках'
     CAREER_COACH = 'career_coach', 'Карьерный коуч'
     JOB_RECOMMENDATIONS = 'job_recommendations', 'Рекомендации'
+    ASSISTANT = 'assistant', 'Ассистент'
+    RESUME_IMPORT = 'resume_import', 'Импорт резюме'
+    HH_ADAPT = 'hh_adapt_resume', 'Адаптация под вакансию'
+
+
+class AiActionLogStatus(models.TextChoices):
+    SUCCESS = 'success', 'Success'
+    FAILED = 'failed', 'Failed'
+    DEMO = 'demo', 'Demo mode'
+
+
+class AiActionLog(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='ai_action_logs',
+    )
+    student_id = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    user_login = models.CharField(max_length=150, blank=True, db_index=True)
+    feature = models.CharField(max_length=32, db_index=True)
+    endpoint = models.CharField(max_length=64, blank=True)
+    status = models.CharField(
+        max_length=16,
+        choices=AiActionLogStatus.choices,
+        default=AiActionLogStatus.SUCCESS,
+        db_index=True,
+    )
+    model_name = models.CharField(max_length=64, blank=True)
+    duration_ms = models.PositiveIntegerField(default=0)
+    request_payload = models.JSONField(default=dict, blank=True)
+    ai_input = models.JSONField(default=dict, blank=True)
+    ai_output = models.TextField(blank=True)
+    error_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'ai_action_logs'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['feature', 'created_at']),
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user_login or self.user_id} {self.feature} ({self.status})"
+
 
 class ResumeAnalysis(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='resume_analyses')

@@ -14,10 +14,6 @@ export function proxy(request: NextRequest) {
 
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
 
-  // Public routes that should redirect if already authenticated
-  const authPaths = ["/login", "/register"];
-  const isAuthPath = authPaths.some((p) => pathname.startsWith(p));
-
   // Check for auth flag in cookie (set by session.ts on login)
   const token = request.cookies.get("qalajob-auth")?.value;
 
@@ -61,6 +57,5 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/login",
-    "/register",
   ],
 };

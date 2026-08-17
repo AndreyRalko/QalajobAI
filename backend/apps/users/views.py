@@ -2,8 +2,7 @@
 QalaJob AI — Authentication & User API Views
 
 Endpoints:
-- POST /auth/register/       — Register new user
-- POST /auth/login/          — Login
+- POST /auth/login/          — Login (preloaded accounts only)
 - POST /auth/logout/         — Logout (blacklist refresh token)
 - GET  /auth/me/             — Get current user
 - POST /auth/token/refresh/  — Refresh JWT
@@ -38,19 +37,12 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, Ou
 from .models import UserProfile, LoginHistory
 from .serializers import (
     LoginSerializer,
-    RegisterSerializer,
     SetLanguageSerializer,
     UserProfileSerializer,
     ChangePasswordSerializer,
     ForgotPasswordSerializer,
     ResetPasswordSerializer,
     VerifyEmailSerializer,
-)
-
-from apps.profiles.models import (
-    StudentProfile,
-    EmployerProfile,
-    AdminProfile,
 )
 
 from .services.email_service import (
@@ -103,73 +95,6 @@ def _validate_password_strength(password):
 
 
 @extend_schema(tags=["Auth"])
-class RegisterView(APIView):
-    permission_classes = [AllowAny]
-    throttle_classes = [AuthRateThrottle]
-
-    def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        email = serializer.validated_data["email"].lower().strip()
-        password = serializer.validated_data["password"]
-        name = serializer.validated_data["name"].strip()
-        role = serializer.validated_data["role"]
-
-        # Validate password strength
-        password_errors = _validate_password_strength(password)
-        if password_errors:
-            return Response(
-                {"message": password_errors[0], "errors": password_errors},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if User.objects.filter(email=email).exists():
-            return Response(
-                {"message": "Email already exists"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        user = User.objects.create_user(
-            username=email,
-            email=email,
-            password=password,
-            first_name=name,
-        )
-
-        profile = UserProfile.objects.create(
-            user=user,
-            role=role,
-        )
-
-        # Create role-specific profile
-        if role == "student":
-            StudentProfile.objects.create(user=user, name=name)
-        elif role == "employer":
-            EmployerProfile.objects.create(user=user, full_name=name)
-        elif role == "admin":
-            AdminProfile.objects.create(user=user, full_name=name)
-
-        # Send verification email
-        send_verification_email(user)
-
-        # Log registration
-        LoginHistory.objects.create(
-            user=user,
-            ip_address=_get_client_ip(request),
-            user_agent=request.META.get('HTTP_USER_AGENT', ''),
-            success=True,
-        )
-
-        logger.info(f"New user registered: {email} ({role})")
-
-        return Response(
-            {"data": _jwt_response(user, profile)},
-            status=status.HTTP_201_CREATED,
-        )
-
-
-@extend_schema(tags=["Auth"])
 class LoginView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [AuthRateThrottle]
@@ -178,18 +103,18 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        email = serializer.validated_data["email"].lower().strip()
+        login = serializer.validated_data["login"].strip()
         password = serializer.validated_data["password"]
 
         user = authenticate(
-            username=email,
+            username=login,
             password=password,
         )
 
         if not user:
             # Log failed attempt
             try:
-                failed_user = User.objects.get(email=email)
+                failed_user = User.objects.get(username=login)
                 LoginHistory.objects.create(
                     user=failed_user,
                     ip_address=_get_client_ip(request),
@@ -199,7 +124,7 @@ class LoginView(APIView):
             except User.DoesNotExist:
                 pass
 
-            security_logger.warning(f"Failed login attempt for {email} from {_get_client_ip(request)}")
+            security_logger.warning(f"Failed login attempt for {login} from {_get_client_ip(request)}")
 
             return Response(
                 {"message": "Invalid credentials"},
@@ -215,7 +140,7 @@ class LoginView(APIView):
             )
 
         if profile.is_banned:
-            security_logger.warning(f"Banned user login attempt: {email}")
+            security_logger.warning(f"Banned user login attempt: {login}")
             return Response(
                 {"message": "Account banned"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -443,6 +368,7 @@ class DeleteAccountView(APIView):
 class UsersListView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserProfileSerializer
+    pagination_class = None
 
     def get_queryset(self):
         return UserProfile.objects.select_related("user").all()

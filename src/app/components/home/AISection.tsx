@@ -116,7 +116,7 @@ export default function AISection() {
 
             <div className="mt-14 flex flex-wrap gap-5">
 
-              <Link href="/register">
+              <Link href="/login">
                 <Button className="h-14 px-8 rounded-2xl bg-cyan-400 text-black hover:bg-cyan-300 text-lg font-semibold shadow-[0_0_50px_rgba(34,211,238,0.4)]">
                   {t.aiSection.button1}
                 </Button>

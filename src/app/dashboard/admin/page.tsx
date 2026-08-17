@@ -104,6 +104,7 @@ export default function AdminDashboard() {
     { label: t("admin.menu.users"), href: "/dashboard/admin/users", icon: "👥" },
     { label: t("admin.menu.vacancies"), href: "/dashboard/admin/vacancies", icon: "💼" },
     { label: t("admin.menu.applications"), href: "/dashboard/admin/applications", icon: "📋" },
+    { label: t("admin.menu.lmsSync"), href: "/dashboard/admin/lms-sync", icon: "🔄" },
     { label: t("admin.menu.settings"), href: "/dashboard/admin/settings", icon: "⚙️" },
   ];
 

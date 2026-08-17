@@ -28,6 +28,22 @@ class StudentProfile(models.Model):
 
     updated_at = models.DateTimeField(auto_now=True)
 
+    def completion_percent(self) -> int:
+        fields = [
+            self.name,
+            self.university,
+            self.major,
+            self.city,
+            self.skills,
+            self.about,
+        ]
+        filled = sum(
+            1
+            for value in fields
+            if value and (len(value) > 0 if isinstance(value, list) else True)
+        )
+        return round(filled / len(fields) * 100)
+
     def __str__(self):
         return self.name or self.user.email
 

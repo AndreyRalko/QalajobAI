@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { loadVacancyContext } from "@/lib/vacancy-context-storage";
 
 type VacancyContextValue = {
   jobTitle: string;
@@ -17,6 +25,14 @@ export function VacancyProvider({ children }: { children: ReactNode }) {
   const [jobTitle, setJobTitle] = useState("");
   const [company, setCompany] = useState("");
   const [jobDescription, setJobDescription] = useState("");
+
+  useEffect(() => {
+    const stored = loadVacancyContext();
+    if (!stored) return;
+    setJobTitle(stored.jobTitle);
+    setCompany(stored.company);
+    setJobDescription(stored.jobDescription);
+  }, []);
 
   const value = useMemo(
     () => ({

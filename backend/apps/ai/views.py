@@ -21,6 +21,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 
 from .models import (
+    AIFeatureType,
     ResumeAnalysis,
     VacancyMatching,
     CoverLetterGeneration,
@@ -29,6 +30,9 @@ from .models import (
     CareerCoachChat,
     AIUsageStatistics,
 )
+from .services.action_log import ai_log_binding
+from .services.candidate_context import build_candidate_context
+from .services.job_recommendations import get_hh_job_recommendations
 from .services.openai_client import (
     analyze_resume as ai_analyze_resume,
     match_vacancy as ai_match_vacancy,
@@ -93,7 +97,13 @@ class AIViewSet(viewsets.ViewSet):
             )
 
         try:
-            result = ai_analyze_resume(resume_text, target_role)
+            with ai_log_binding(
+                user=request.user,
+                feature=AIFeatureType.RESUME_ANALYSIS,
+                endpoint="analyze-resume",
+                request_payload=request.data,
+            ):
+                result = ai_analyze_resume(resume_text, target_role)
 
             if not result:
                 return Response(
@@ -177,7 +187,14 @@ class AIViewSet(viewsets.ViewSet):
                 'type': vacancy.job_type or '',
             }
 
-            result = ai_match_vacancy(candidate_data, vacancy_data)
+            result = None
+            with ai_log_binding(
+                user=request.user,
+                feature=AIFeatureType.VACANCY_MATCHING,
+                endpoint="match-vacancies",
+                request_payload=request.data,
+            ):
+                result = ai_match_vacancy(candidate_data, vacancy_data)
 
             if not result:
                 return Response(
@@ -225,6 +242,66 @@ class AIViewSet(viewsets.ViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=False, methods=['post'], url_path='job-recommendations')
+    def job_recommendations(self, request):
+        """
+        Recommend HeadHunter vacancies based on job interests and LMS transcript.
+
+        POST /api/v1/ai/job-recommendations/
+        {
+            "job_interests": "Ищу работу учителем истории в школе",
+            "limit": 10,
+            "language": "ru"
+        }
+        """
+        job_interests = (request.data.get('job_interests') or '').strip()
+        if not job_interests:
+            return Response(
+                {'message': 'job_interests is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            limit = min(max(int(request.data.get('limit', 10)), 1), 20)
+        except (TypeError, ValueError):
+            limit = 10
+
+        language = (request.data.get('language') or 'ru').strip()
+
+        candidate = build_candidate_context(request.user, job_interests=job_interests)
+
+        with ai_log_binding(
+            user=request.user,
+            feature=AIFeatureType.JOB_RECOMMENDATIONS,
+            endpoint="job-recommendations",
+            request_payload=request.data,
+        ):
+            result = get_hh_job_recommendations(
+                candidate,
+                limit=limit,
+                language=language,
+            )
+
+        for item in result.get('recommendations') or []:
+            VacancyMatching.objects.update_or_create(
+                user=request.user,
+                vacancy_id=str(item['vacancy_id']),
+                defaults={
+                    'match_score': item.get('match_score', 0),
+                    'skill_match': item.get('match_score', 0),
+                    'experience_match': item.get('match_score', 0),
+                    'education_match': item.get('match_score', 0),
+                    'location_match': item.get('match_score', 0),
+                    'missing_skills': item.get('missing_skills', []),
+                    'matching_skills': item.get('matching_skills', []),
+                    'explanation': item.get('explanation', ''),
+                },
+            )
+
+        _track_usage(request.user, 'job_recommendations')
+
+        return Response(result)
+
     @action(detail=False, methods=['post'], url_path='generate-cover-letter')
     def generate_cover_letter(self, request):
         """
@@ -264,7 +341,14 @@ class AIViewSet(viewsets.ViewSet):
                 'description': vacancy.description,
             }
 
-            result = ai_generate_cover_letter(candidate_data, vacancy_data, tone)
+            result = None
+            with ai_log_binding(
+                user=request.user,
+                feature=AIFeatureType.COVER_LETTER,
+                endpoint="generate-cover-letter",
+                request_payload=request.data,
+            ):
+                result = ai_generate_cover_letter(candidate_data, vacancy_data, tone)
 
             if not result:
                 return Response(
@@ -328,7 +412,14 @@ class AIViewSet(viewsets.ViewSet):
                 'requirements': vacancy.requirements or vacancy.description,
             }
 
-            result = ai_prepare_interview(vacancy_data, difficulty)
+            result = None
+            with ai_log_binding(
+                user=request.user,
+                feature=AIFeatureType.INTERVIEW_PREP,
+                endpoint="interview-preparation",
+                request_payload=request.data,
+            ):
+                result = ai_prepare_interview(vacancy_data, difficulty)
 
             if not result:
                 return Response(
@@ -387,7 +478,14 @@ class AIViewSet(viewsets.ViewSet):
             skills_raw = profile.skills or ''
             current_skills = [s.strip() for s in skills_raw.split(',') if s.strip()]
 
-            result = ai_analyze_skill_gap(current_skills, target_role)
+            result = None
+            with ai_log_binding(
+                user=request.user,
+                feature=AIFeatureType.SKILL_GAP,
+                endpoint="analyze-skill-gap",
+                request_payload=request.data,
+            ):
+                result = ai_analyze_skill_gap(current_skills, target_role)
 
             if not result:
                 return Response(
@@ -457,13 +555,25 @@ class AIViewSet(viewsets.ViewSet):
                 )
 
             messages = chat.messages or []
+            history_for_ai = _normalize_messages(messages)
             messages.append({
                 'role': 'user',
                 'content': message,
                 'timestamp': timezone.now().isoformat(),
             })
 
-            reply = ai_career_chat(message, messages, language=language)
+            with ai_log_binding(
+                user=request.user,
+                feature=AIFeatureType.CAREER_COACH,
+                endpoint="career-coach-chat",
+                request_payload=request.data,
+            ):
+                reply = ai_career_chat(
+                    message,
+                    history_for_ai,
+                    language=language,
+                    history_trusted=True,
+                )
 
             if not reply:
                 reply = "I'm sorry, I'm temporarily unavailable. Please try again in a moment."

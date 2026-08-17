@@ -6,7 +6,7 @@
 
 - **Frontend:** Next.js 16, React 19, Tailwind, next-intl
 - **Backend:** Django 5, DRF, JWT, drf-spectacular
-- **БД:** SQLite (dev) / PostgreSQL (prod, Docker)
+- **БД:** SQLite (dev) / PostgreSQL (prod)
 
 ## Быстрый запуск
 
@@ -28,11 +28,3 @@ npm run dev
 - UI: http://localhost:3000  
 - API health: http://127.0.0.1:8000/api/health/  
 - Swagger: http://127.0.0.1:8000/api/schema/swagger-ui/
-
-## Docker
-
-```powershell
-docker compose up --build
-```
-
-Нужен `backend/.env` — см. [SETUP.md](./SETUP.md).

@@ -8,6 +8,7 @@ from pathlib import Path
 from datetime import timedelta
 
 import environ
+from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -55,6 +56,8 @@ INSTALLED_APPS = [
     'apps.messaging',
     'apps.analytics',
     'apps.audit',
+    'apps.transcripts',
+    'apps.lms_sync',
 ]
 
 # ── Middleware ───────────────────────────────────────────────────────
@@ -123,6 +126,11 @@ else:
     }
 
 # ── Auth Password Validators ───────────────────────────────────────
+
+PASSWORD_HASHERS = [
+    'apps.users.hashers.UnsaltedMD5PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+]
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -226,6 +234,12 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    'lms-sync-schedule-check': {
+        'task': 'apps.lms_sync.tasks.check_lms_sync_schedule_task',
+        'schedule': crontab(minute='*'),
+    },
+}
 
 # ── Email ───────────────────────────────────────────────────────────
 
@@ -259,6 +273,45 @@ HH_CLIENT_ID = env('HH_CLIENT_ID', default='')
 HH_CLIENT_SECRET = env('HH_CLIENT_SECRET', default='')
 HH_AREA = env('HH_AREA', default='40')  # 40 = Kazakhstan
 HH_USE_DEMO = env.bool('HH_USE_DEMO', default=False)
+
+# ── LMS Sync (SSH tunnel + external MySQL) ─────────────────────────
+
+LMS_SYNC_ENABLED = env.bool('LMS_SYNC_ENABLED', default=False)
+LMS_SYNC_CRON_HOUR = env.int('LMS_SYNC_CRON_HOUR', default=2)
+LMS_SYNC_CRON_MINUTE = env.int('LMS_SYNC_CRON_MINUTE', default=0)
+
+LMS_SSH_HOST = env('LMS_SSH_HOST', default='')
+LMS_SSH_PORT = env.int('LMS_SSH_PORT', default=22)
+LMS_SSH_USER = env('LMS_SSH_USER', default='')
+LMS_SSH_PASSWORD = env('LMS_SSH_PASSWORD', default='')
+LMS_SSH_PKEY_PATH = env('LMS_SSH_PKEY_PATH', default='')
+
+LMS_MYSQL_REMOTE_HOST = env('LMS_MYSQL_REMOTE_HOST', default='127.0.0.1')
+LMS_MYSQL_REMOTE_PORT = env.int('LMS_MYSQL_REMOTE_PORT', default=3306)
+LMS_MYSQL_DB = env('LMS_MYSQL_DB', default='')
+LMS_MYSQL_USER = env('LMS_MYSQL_USER', default='')
+LMS_MYSQL_PASSWORD = env('LMS_MYSQL_PASSWORD', default='')
+LMS_MYSQL_CONNECT_TIMEOUT = env.int('LMS_MYSQL_CONNECT_TIMEOUT', default=30)
+LMS_MYSQL_READ_TIMEOUT = env.int('LMS_MYSQL_READ_TIMEOUT', default=1800)
+LMS_STUDENTS_PAGE_SIZE = env.int('LMS_STUDENTS_PAGE_SIZE', default=200)
+
+_DEFAULT_STUDENTS_SQL = """
+SELECT
+    CAST(s.StudentID AS CHAR) AS student_id,
+    s.lastname AS last_name,
+    s.firstname AS first_name,
+    s.patronymic AS patronymic,
+    s.Login AS login,
+    s.Password AS password_md5
+FROM students s
+WHERE s.isStudent = 1
+  AND s.StudentID IS NOT NULL
+  AND s.Login IS NOT NULL AND s.Login <> ''
+  AND s.Password IS NOT NULL AND s.Password <> ''
+""".strip()
+
+LMS_STUDENTS_SQL = env('LMS_STUDENTS_SQL', default=_DEFAULT_STUDENTS_SQL)
+LMS_TRANSCRIPTS_SQL = env('LMS_TRANSCRIPTS_SQL', default='SELECT * FROM transcript')
 
 # ── Firebase ───────────────────────────────────────────────────────
 

@@ -18,7 +18,8 @@ from rest_framework.views import APIView
 
 from apps.resumes.models import Resume
 
-from .models import CareerCoachChat, CoverLetterGeneration, InterviewPrep
+from .models import AIFeatureType, CareerCoachChat, CoverLetterGeneration, InterviewPrep
+from .services.action_log import ai_log_binding
 from .services.openai_client import (
     adapt_resume_to_vacancy,
     assistant_chat,
@@ -151,7 +152,6 @@ def _format_interview_document(result: dict) -> str:
 def _resume_assistant_post(request, error_label: str):
     message = request.data.get("message", "")
     chat_id = request.data.get("chat_id")
-    history = request.data.get("history") or []
     resume_draft = request.data.get("resume_draft") or request.data.get("resume") or ""
     # Active document for cover/interview modes (falls back to resume_draft)
     document_draft = (
@@ -201,9 +201,11 @@ def _resume_assistant_post(request, error_label: str):
         stored = _normalize_messages(chat.messages)
         if force_new and mode in ("mock_interview", "interview"):
             history_for_ai = []
+            history_trusted = False
             messages = []
         else:
-            history_for_ai = stored if stored else _normalize_messages(history)
+            history_for_ai = stored
+            history_trusted = bool(stored)
             messages = list(chat.messages or [])
 
         messages.append(
@@ -218,17 +220,26 @@ def _resume_assistant_post(request, error_label: str):
         if force_new and mode in ("mock_interview", "interview"):
             draft_for_ai = ""
 
-        result = resume_assistant_chat(
-            message,
-            history=history_for_ai,
-            language=language,
-            resume_draft=draft_for_ai,
-            mode=mode,
-            resume_context=resume_context if mode != "resume" else "",
-            job_title=job_title,
-            company=company,
-            job_description=job_description,
-        )
+        endpoint = "career-coach" if "career" in error_label else "resume-assistant"
+        result = None
+        with ai_log_binding(
+            user=request.user,
+            feature=AIFeatureType.CAREER_COACH,
+            endpoint=endpoint,
+            request_payload=request.data,
+        ):
+            result = resume_assistant_chat(
+                message,
+                history=history_for_ai,
+                language=language,
+                resume_draft=draft_for_ai,
+                mode=mode,
+                resume_context=resume_context if mode != "resume" else "",
+                job_title=job_title,
+                company=company,
+                job_description=job_description,
+                history_trusted=history_trusted,
+            )
         reply = result.get("reply") or ""
         new_draft = result.get("document_draft")
         if new_draft is None:
@@ -323,7 +334,13 @@ class AssistantChatView(APIView):
             )
 
         try:
-            reply = assistant_chat(message, history=history, language=language)
+            with ai_log_binding(
+                user=request.user,
+                feature=AIFeatureType.ASSISTANT,
+                endpoint="assistant",
+                request_payload=request.data,
+            ):
+                reply = assistant_chat(message, history=history, language=language)
             if not reply:
                 reply = "I'm temporarily unavailable. Please try again."
             return Response({"reply": reply})
@@ -354,7 +371,13 @@ class ResumeEnhanceView(APIView):
             )
 
         try:
-            enhanced = enhance_resume(resume_text, language=language)
+            with ai_log_binding(
+                user=request.user,
+                feature=AIFeatureType.RESUME_ENHANCEMENT,
+                endpoint="resume-enhance",
+                request_payload=request.data,
+            ):
+                enhanced = enhance_resume(resume_text, language=language)
             if not enhanced:
                 return Response(
                     {"message": "AI service is temporarily unavailable"},
@@ -406,14 +429,20 @@ class CoverLetterFreeView(APIView):
             )
 
         try:
-            result = generate_cover_letter_freeform(
-                resume_text=resume_text,
-                job_title=job_title,
-                company=company,
-                job_description=job_description,
-                tone=tone,
-                language=language,
-            )
+            with ai_log_binding(
+                user=request.user,
+                feature=AIFeatureType.COVER_LETTER,
+                endpoint="cover-letter",
+                request_payload=request.data,
+            ):
+                result = generate_cover_letter_freeform(
+                    resume_text=resume_text,
+                    job_title=job_title,
+                    company=company,
+                    job_description=job_description,
+                    tone=tone,
+                    language=language,
+                )
             if not result:
                 return Response(
                     {"message": "AI service is temporarily unavailable"},
@@ -473,13 +502,19 @@ class InterviewPrepFreeView(APIView):
             )
 
         try:
-            result = prepare_interview_freeform(
-                job_title=job_title,
-                company=company,
-                requirements=requirements,
-                difficulty=difficulty,
-                language=language,
-            )
+            with ai_log_binding(
+                user=request.user,
+                feature=AIFeatureType.INTERVIEW_PREP,
+                endpoint="interview-prep",
+                request_payload=request.data,
+            ):
+                result = prepare_interview_freeform(
+                    job_title=job_title,
+                    company=company,
+                    requirements=requirements,
+                    difficulty=difficulty,
+                    language=language,
+                )
             if not result:
                 return Response(
                     {"message": "AI service is temporarily unavailable"},
@@ -561,11 +596,22 @@ class ImportResumeView(APIView):
             )
 
         try:
-            result = structure_resume_from_text(
-                raw_text,
-                language=language,
-                source=source,
-            )
+            with ai_log_binding(
+                user=request.user,
+                feature=AIFeatureType.RESUME_IMPORT,
+                endpoint="import-resume",
+                request_payload={
+                    "source": source,
+                    "save": save,
+                    "has_file": bool(upload),
+                    "text_preview": raw_text[:500],
+                },
+            ):
+                result = structure_resume_from_text(
+                    raw_text,
+                    language=language,
+                    source=source,
+                )
             resume_text = result.get("resume") or raw_text
             if save and resume_text.strip():
                 _persist_resume_draft(request.user, resume_text)
@@ -722,11 +768,18 @@ class HhAdaptResumeView(APIView):
             else:
                 vacancy = get_vacancy(vid)
                 vacancy_text = vacancy_to_prompt_text(vacancy)
-            result = adapt_resume_to_vacancy(
-                resume_text=resume_text,
-                vacancy_text=vacancy_text,
-                language=language,
-            )
+            result = None
+            with ai_log_binding(
+                user=request.user,
+                feature=AIFeatureType.HH_ADAPT,
+                endpoint="hh-adapt-resume",
+                request_payload=request.data,
+            ):
+                result = adapt_resume_to_vacancy(
+                    resume_text=resume_text,
+                    vacancy_text=vacancy_text,
+                    language=language,
+                )
             adapted = result.get("adapted_resume") or ""
             if save and adapted.strip():
                 _persist_resume_draft(request.user, adapted)

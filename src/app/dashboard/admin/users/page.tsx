@@ -6,13 +6,22 @@ import { getUsers, deleteUser, banUser, unbanUser } from "@/lib/api";
 
 interface UserData {
   id: number;
+  login?: string;
+  name?: string;
   email?: string;
   role?: string;
   first_name?: string;
   last_name?: string;
   is_active?: boolean;
   date_joined?: string;
+  created_at?: string;
   is_banned?: boolean;
+}
+
+function displayName(user: UserData): string {
+  const fullName = user.name?.trim()
+    || `${user.first_name || ""} ${user.last_name || ""}`.trim();
+  return fullName || user.login || "";
 }
 
 export default function AdminUsersPage() {
@@ -75,11 +84,12 @@ export default function AdminUsersPage() {
   };
 
   const filteredUsers = users.filter((user) => {
-    const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim().toLowerCase();
+    const fullName = displayName(user).toLowerCase();
     const keyword = search.toLowerCase();
 
     const matchesSearch =
       fullName.includes(keyword) ||
+      user.login?.toLowerCase().includes(keyword) ||
       user.email?.toLowerCase().includes(keyword);
 
     const matchesRole = roleFilter === "all" ? true : user.role === roleFilter;
@@ -150,11 +160,12 @@ export default function AdminUsersPage() {
                 filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-white/5 transition">
                     <td className="p-5 font-medium">
-                      {user.first_name || user.last_name
-                        ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
-                        : t("admin.users.noName")}
+                      {displayName(user) || t("admin.users.noName")}
+                      {user.login && displayName(user) !== user.login ? (
+                        <p className="text-xs text-white/40 mt-1">{user.login}</p>
+                      ) : null}
                     </td>
-                    <td className="p-5 text-white/70">{user.email}</td>
+                    <td className="p-5 text-white/70">{user.email || "—"}</td>
                     <td className="p-5">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -182,7 +193,9 @@ export default function AdminUsersPage() {
                       )}
                     </td>
                     <td className="p-5 text-white/50">
-                      {user.date_joined ? new Date(user.date_joined).toLocaleDateString() : t("admin.users.na")}
+                      {user.date_joined || user.created_at
+                        ? new Date(user.date_joined || user.created_at!).toLocaleDateString()
+                        : t("admin.users.na")}
                     </td>
                     <td className="p-5">
                       <div className="flex gap-2 justify-end">

@@ -19,7 +19,10 @@ from .serializers import (
     BanUserRequestSerializer,
     UnbanUserRequestSerializer,
     ModerationReviewRequestSerializer,
-    DashboardStatsSerializer
+    DashboardStatsSerializer,
+    LmsSyncLogSerializer,
+    LmsSyncScheduleSerializer,
+    AiActionLogSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -366,6 +369,137 @@ class AdminViewSet(viewsets.ViewSet):
             return Response(
                 {'error': 'Ошибка при работе с настройками'},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['get'], url_path='lms-sync-logs')
+    def lms_sync_logs(self, request):
+        """
+        Получает журнал ежедневных обновлений из LMS.
+
+        GET /api/v1/admin-api/lms-sync-logs/?status=success&limit=50
+        """
+        try:
+            from apps.lms_sync.models import LmsSyncLog
+
+            status_filter = request.query_params.get('status')
+            limit = min(int(request.query_params.get('limit', 50)), 200)
+
+            logs = LmsSyncLog.objects.all()
+            if status_filter:
+                logs = logs.filter(status=status_filter)
+
+            serializer = LmsSyncLogSerializer(logs[:limit], many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Ошибка при получении LMS sync logs: {str(e)}")
+            return Response(
+                {'error': 'Ошибка при получении журнала LMS синхронизации'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['post'], url_path='lms-sync-run')
+    def lms_sync_run(self, request):
+        """
+        Запускает синхронизацию студентов и транскриптов из LMS.
+
+        POST /api/v1/admin-api/lms-sync-run/
+        { "full": false }
+        """
+        try:
+            from apps.lms_sync.models import LmsSyncLog, LmsSyncStatus
+            from apps.lms_sync.services.sync import run_lms_sync
+
+            if LmsSyncLog.objects.filter(status=LmsSyncStatus.RUNNING).exists():
+                return Response(
+                    {'error': 'Синхронизация уже выполняется'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            full = bool(request.data.get('full', False))
+            log, stats = run_lms_sync(incremental=not full)
+            serializer = LmsSyncLogSerializer(log)
+            return Response({**serializer.data, **stats}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception("Ошибка при запуске LMS sync")
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    @action(detail=False, methods=['get', 'put'], url_path='lms-sync-schedule')
+    def lms_sync_schedule(self, request):
+        """
+        GET/PUT /api/v1/admin-api/lms-sync-schedule/
+        """
+        from apps.lms_sync.services.schedule import get_schedule_payload, update_schedule
+
+        if request.method == 'GET':
+            payload = get_schedule_payload()
+            serializer = LmsSyncScheduleSerializer(instance=payload)
+            return Response(serializer.data)
+
+        serializer = LmsSyncScheduleSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        data = serializer.validated_data
+        if 'enabled' not in data and 'hour' not in data and 'minute' not in data:
+            return Response(
+                {'error': 'Укажите enabled, hour и/или minute'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        current = get_schedule_payload()
+        try:
+            payload = update_schedule(
+                enabled=data.get('enabled', current['enabled']),
+                hour=data.get('hour', current['hour']),
+                minute=data.get('minute', current['minute']),
+            )
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(LmsSyncScheduleSerializer(instance=payload).data)
+
+    @action(detail=False, methods=['get'], url_path='ai-action-logs')
+    def ai_action_logs(self, request):
+        """
+        GET /api/v1/admin-api/ai-action-logs/
+        ?feature=resume_analysis&status=success&student_id=48958&login=ivan&days=7&limit=100
+        """
+        from apps.ai.models import AiActionLog
+
+        try:
+            logs = AiActionLog.objects.select_related('user').all()
+
+            feature = request.query_params.get('feature')
+            status_filter = request.query_params.get('status')
+            student_id = request.query_params.get('student_id')
+            login = request.query_params.get('login')
+            days = request.query_params.get('days')
+
+            if feature:
+                logs = logs.filter(feature=feature)
+            if status_filter:
+                logs = logs.filter(status=status_filter)
+            if student_id:
+                logs = logs.filter(student_id=student_id)
+            if login:
+                logs = logs.filter(user_login__icontains=login)
+            if days:
+                try:
+                    days_int = max(int(days), 1)
+                    logs = logs.filter(created_at__gte=timezone.now() - timedelta(days=days_int))
+                except ValueError:
+                    pass
+
+            limit = min(int(request.query_params.get('limit', 100)), 200)
+            serializer = AiActionLogSerializer(logs[:limit], many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Ошибка при получении AI action logs: {str(e)}")
+            return Response(
+                {'error': 'Ошибка при получении журнала действий ИИ'},
+                status=status.HTTP_400_BAD_REQUEST,
             )
     
     def _get_client_ip(self, request):

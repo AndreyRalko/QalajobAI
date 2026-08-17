@@ -64,17 +64,8 @@ export default function Navbar() {
               </div>
 
               <Link href="/login">
-                <Button
-                  variant="ghost"
-                  className="hidden md:flex rounded-xl text-white/70 hover:text-white"
-                >
-                  {t.navbar.login}
-                </Button>
-              </Link>
-
-              <Link href="/register">
                 <Button className="hidden md:flex rounded-xl bg-cyan-400 text-black hover:bg-cyan-300">
-                  {t.navbar.register}
+                  {t.navbar.login}
                 </Button>
               </Link>
 
@@ -152,16 +143,8 @@ export default function Navbar() {
 
               <div className="mt-6 flex flex-col gap-3">
                 <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button
-                    variant="outline"
-                    className="w-full h-12 rounded-xl border-white/10"
-                  >
-                    {t.navbar.login}
-                  </Button>
-                </Link>
-                <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
                   <Button className="w-full h-12 rounded-xl bg-cyan-400 text-black hover:bg-cyan-300">
-                    {t.navbar.register}
+                    {t.navbar.login}
                   </Button>
                 </Link>
               </div>

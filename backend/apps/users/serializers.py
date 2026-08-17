@@ -1,14 +1,32 @@
-import re
-
-from django.contrib.auth.models import User
 from rest_framework import serializers
 
-from .models import UserProfile, UserRole
+from .models import UserProfile
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
         source="user.email",
+        read_only=True,
+        allow_blank=True,
+    )
+    login = serializers.CharField(
+        source="user.username",
+        read_only=True,
+    )
+    first_name = serializers.CharField(
+        source="user.first_name",
+        read_only=True,
+    )
+    last_name = serializers.CharField(
+        source="user.last_name",
+        read_only=True,
+    )
+    date_joined = serializers.DateTimeField(
+        source="user.date_joined",
+        read_only=True,
+    )
+    is_active = serializers.BooleanField(
+        source="user.is_active",
         read_only=True,
     )
     name = serializers.SerializerMethodField()
@@ -18,21 +36,29 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = [
             "id",
+            "login",
             "email",
             "name",
+            "first_name",
+            "last_name",
             "role",
             "language",
             "phone",
             "photo_url",
             "is_banned",
+            "is_active",
             "email_verified",
+            "student_id",
             "subscription",
+            "date_joined",
             "created_at",
             "updated_at",
         ]
         read_only_fields = [
             "id",
+            "login",
             "email",
+            "student_id",
             "is_banned",
             "created_at",
             "updated_at",
@@ -44,7 +70,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             return full_name
         if obj.user.first_name:
             return obj.user.first_name
-        return obj.user.email.split("@")[0]
+        return obj.user.username
 
     def get_subscription(self, obj):
         subscription = getattr(obj.user, "subscription", None)
@@ -53,33 +79,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return "free"
 
 
-class RegisterSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(
-        write_only=True,
-        min_length=8,
-    )
-    name = serializers.CharField(max_length=150)
-    role = serializers.ChoiceField(choices=UserRole.choices)
-
-    def validate_email(self, value):
-        email = value.lower().strip()
-        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
-            raise serializers.ValidationError("Invalid email format")
-        return email
-
-    def validate_name(self, value):
-        name = value.strip()
-        if len(name) < 2:
-            raise serializers.ValidationError("Name must be at least 2 characters")
-        if not re.match(r'^[a-zA-Zа-яА-ЯёЁәғқңөұүіһӘҒҚҢӨҰҮІҺ\s\-\.]+$', name):
-            raise serializers.ValidationError("Name contains invalid characters")
-        return name
-
-
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    login = serializers.CharField()
     password = serializers.CharField(write_only=True)
+
+    def validate_login(self, value):
+        login = value.strip()
+        if not login:
+            raise serializers.ValidationError("Login is required")
+        return login
 
 
 class SetLanguageSerializer(serializers.Serializer):

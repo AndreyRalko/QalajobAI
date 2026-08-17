@@ -16,7 +16,7 @@
 ## Требования
 
 - **Node.js** 20+ (npm)
-- **Python** 3.11–3.13 (в Docker — 3.11)
+- **Python** 3.11–3.14
 - Windows: PowerShell; для активации venv может понадобиться:
   ```powershell
   Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
@@ -24,7 +24,7 @@
 
 ---
 
-## Быстрый старт (локально, без Docker)
+## Быстрый старт (локально)
 
 Нужны **два терминала**.
 
@@ -103,8 +103,7 @@ npm run dev
 | URL | Назначение |
 |-----|------------|
 | `/api/health/` | Проверка живости |
-| `/api/v1/auth/register/` | Регистрация |
-| `/api/v1/auth/login/` | Логин (JWT) |
+| `/api/v1/auth/login/` | Логин (JWT, предзагруженные аккаунты) |
 | `/api/v1/auth/me/` | Текущий пользователь |
 | `/api/schema/swagger-ui/` | Документация API |
 
@@ -122,7 +121,7 @@ npm run dev
 | `REDIS_URL` | `backend/.env` | Cache / Celery (prod) |
 | `DB_*` | `backend/.env` | Postgres вместо SQLite |
 
-Пример `backend/.env` (production / Docker):
+Пример `backend/.env` (production на сервере):
 
 ```env
 SECRET_KEY=change-me
@@ -131,31 +130,11 @@ DB_ENGINE=django.db.backends.postgresql
 DB_NAME=qalajob_db
 DB_USER=postgres
 DB_PASSWORD=postgres
-DB_HOST=db
+DB_HOST=127.0.0.1
 DB_PORT=5432
-REDIS_URL=redis://redis:6379/0
+REDIS_URL=redis://127.0.0.1:6379/0
 FRONTEND_URL=http://localhost:3000
 CORS_ALLOWED_ORIGINS=http://localhost:3000
-```
-
----
-
-## Docker (полный стек)
-
-Нужен файл `backend/.env` (compose читает `env_file`).
-
-```powershell
-# из корня репозитория
-docker compose up --build
-```
-
-Сервисы: Postgres `:5432`, Redis `:6379`, backend `:8000`, frontend `:3000`.
-
-Отдельно только backend-стек (Postgres + Redis + Celery + Nginx):
-
-```powershell
-cd backend
-docker compose up --build
 ```
 
 ---
@@ -170,8 +149,6 @@ qalajob-ai/
 │   ├── config/          # settings, urls, wsgi
 │   ├── manage.py
 │   └── requirements.txt
-├── docs/                # планы / заметки
-├── docker-compose.yml   # полный стек
 ├── package.json         # frontend
 └── SETUP.md             # эта инструкция
 ```
@@ -180,7 +157,7 @@ Settings:
 
 - `config.settings` / `config.settings.dev` — локальная разработка (SQLite, CORS open)
 - `config.settings.server` — VPS / Waitress :8088 (см. `DEPLOY.md`)
-- `config.settings.prod` — production / Docker (HTTPS + Postgres)
+- `config.settings.prod` — production (HTTPS + Postgres)
 
 ---
 

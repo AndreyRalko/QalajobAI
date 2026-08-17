@@ -43,6 +43,15 @@ class UserProfile(models.Model):
         default=False,
     )
 
+    student_id = models.CharField(
+        max_length=64,
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        help_text="LMS StudentID used to load academic transcript",
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
@@ -60,7 +69,7 @@ class UserProfile(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user.email} ({self.role})"
+        return f"{self.user.username} ({self.role})"
 
 
 class EmailVerificationToken(models.Model):

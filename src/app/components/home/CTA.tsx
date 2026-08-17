@@ -57,7 +57,7 @@ export default function CTA() {
 
           <div className="mt-12 flex flex-wrap justify-center gap-5">
 
-            <Link href="/register">
+            <Link href="/login">
 
               <Button className="h-14 px-8 rounded-2xl bg-cyan-400 text-black hover:bg-cyan-300 text-lg font-semibold">
 

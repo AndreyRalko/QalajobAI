@@ -119,7 +119,7 @@ export default function AboutPage() {
           <p className="mt-4 text-white/60">{t("aboutPage.ctaDesc")}</p>
           <div className="mt-8 flex justify-center gap-4">
             <button
-              onClick={() => router.push("/register")}
+              onClick={() => router.push("/login")}
               className="px-8 py-4 rounded-2xl bg-cyan-500 text-black font-bold hover:bg-cyan-400 transition"
             >
               {t("aboutPage.ctaButton")}

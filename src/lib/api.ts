@@ -116,30 +116,14 @@ async function tryRefreshToken(): Promise<boolean> {
 
 // ── Auth ────────────────────────────────────────────────────────────
 
-export async function registerApi(
-  name: string,
-  email: string,
-  password: string,
-  role: "student" | "employer"
-) {
-  return apiRequest<{
-    user: ApiUser;
-    access: string;
-    refresh: string;
-  }>("/auth/register/", {
-    method: "POST",
-    body: JSON.stringify({ name, email, password, role }),
-  });
-}
-
-export async function loginApi(email: string, password: string) {
+export async function loginApi(login: string, password: string) {
   return apiRequest<{
     user: ApiUser;
     access: string;
     refresh: string;
   }>("/auth/login/", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ login, password }),
   });
 }
 
@@ -191,6 +175,18 @@ export async function setLanguageApi(language: string) {
     method: "POST",
     auth: true,
     body: JSON.stringify({ language }),
+  });
+}
+
+// ── Transcript ──────────────────────────────────────────────────────
+
+export async function getTranscriptsApi() {
+  return apiRequest<ApiTranscript[]>("/transcripts/", { auth: true });
+}
+
+export async function getTranscriptSummaryApi() {
+  return apiRequest<ApiTranscriptSummary>("/transcripts/summary/", {
+    auth: true,
   });
 }
 
@@ -744,6 +740,19 @@ export async function aiMatchVacancy(vacancyId: string) {
   });
 }
 
+export async function aiJobRecommendations(params: {
+  job_interests: string;
+  limit?: number;
+  city?: string;
+  language?: string;
+}) {
+  return apiRequest<ApiJobRecommendationsResult>("/ai/job-recommendations/", {
+    method: "POST",
+    auth: true,
+    body: JSON.stringify(params),
+  });
+}
+
 export async function aiSkillGap(targetRole: string) {
   return apiRequest<ApiSkillGap>("/ai/analyze-skill-gap/", {
     method: "POST",
@@ -852,13 +861,47 @@ export async function startConversation(recipientId: number, message: string) {
 
 export interface ApiUser {
   id: number;
+  login?: string;
   email: string;
   name: string;
+  first_name?: string;
+  last_name?: string;
   role: "student" | "employer" | "admin";
   language: string;
+  student_id?: string | null;
   subscription?: string;
   is_banned?: boolean;
+  is_active?: boolean;
   email_verified?: boolean;
+  date_joined?: string;
+  created_at?: string;
+}
+
+export interface ApiTranscript {
+  id: number;
+  lms_id: number;
+  student_id: string;
+  subject_code: string;
+  credits: string;
+  alpha_mark: string;
+  numeral_mark: string;
+  total_mark: string;
+  subject_name_ru: string;
+  subject_name_kz: string;
+  subject_name_en: string;
+  course_number: number | null;
+  term: number | null;
+  is_passed: boolean;
+  ects: string;
+  deleted?: number;
+}
+
+export interface ApiTranscriptSummary {
+  student_id: string | null;
+  subjects: number;
+  graded_subjects?: number;
+  credits: string | null;
+  gpa: string | number | null;
 }
 
 export interface ApiVacancy {
@@ -955,6 +998,29 @@ export interface ApiVacancyMatch {
   missing_skills: string[];
   matching_skills: string[];
   explanation: string;
+}
+
+export interface ApiJobRecommendation {
+  vacancy_id: string;
+  match_score: number;
+  matching_skills: string[];
+  missing_skills: string[];
+  explanation: string;
+  vacancy: HhVacancyListItem;
+}
+
+export interface ApiJobRecommendationsResult {
+  recommendations: ApiJobRecommendation[];
+  vacancies_available?: number;
+  hh_search?: {
+    text: string;
+    area: string;
+    reasoning?: string;
+    found?: number;
+    demo?: boolean;
+    warning?: string;
+  };
+  message?: string;
 }
 
 export interface ApiSkillGap {

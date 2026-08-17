@@ -43,6 +43,7 @@ urlpatterns = [
         path('messaging/', include('apps.messaging.urls')),
         path('analytics/', include('apps.analytics.urls')),
         path('audit/', include('apps.audit.urls')),
+        path('', include('apps.transcripts.urls')),
     ])),
 ]
 

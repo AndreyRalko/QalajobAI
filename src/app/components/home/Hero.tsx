@@ -81,7 +81,7 @@ export default function Hero() {
 
             <div className="mt-10 flex flex-wrap gap-4">
 
-              <Link href="/register">
+              <Link href="/login">
                 <Button className="h-14 px-8 rounded-2xl bg-cyan-400 text-black hover:bg-cyan-300 text-lg font-semibold">
                   {t.hero.start}
                 </Button>

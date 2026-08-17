@@ -7,6 +7,7 @@ class UserProfileAdmin(admin.ModelAdmin):
     list_display = (
         "user",
         "role",
+        "student_id",
         "language",
         "is_banned",
         "email_verified",
@@ -23,6 +24,7 @@ class UserProfileAdmin(admin.ModelAdmin):
     search_fields = (
         "user__username",
         "user__email",
+        "student_id",
         "phone",
     )
 
@@ -42,6 +44,7 @@ class UserProfileAdmin(admin.ModelAdmin):
                 "fields": (
                     "user",
                     "role",
+                    "student_id",
                     "language",
                 )
             },

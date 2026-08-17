@@ -7,10 +7,21 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Optional
 
 import requests
 from django.conf import settings
+
+from .action_log import log_openai_exchange
+from .prompt_guard import (
+    format_history_for_prompt,
+    hardened_system,
+    sanitize_client_history,
+    sanitize_document_draft,
+    sanitize_reply_text,
+    wrap_untrusted,
+)
 
 logger = logging.getLogger("apps")
 
@@ -31,16 +42,25 @@ class OpenAIClient:
         temperature: float = 0.7,
         max_tokens: int = 2000,
     ) -> str:
+        started = time.perf_counter()
         if not self.api_key:
             logger.warning("OPENAI_API_KEY not configured — demo response")
             last_user = next(
                 (m.get("content", "") for m in reversed(messages) if m.get("role") == "user"),
                 "",
             )
-            return (
+            response_text = (
                 "[Demo mode] Configure OPENAI_API_KEY in backend/.env for live AI. "
                 f"You asked: {str(last_user)[:200]}"
             )
+            log_openai_exchange(
+                messages=messages,
+                response_text=response_text,
+                model_name=self.model,
+                duration_ms=int((time.perf_counter() - started) * 1000),
+                status="demo",
+            )
+            return response_text
 
         try:
             response = requests.post(
@@ -57,18 +77,46 @@ class OpenAIClient:
                 },
                 timeout=60,
             )
+            duration_ms = int((time.perf_counter() - started) * 1000)
             if response.status_code >= 400:
+                error_text = response.text[:500]
                 logger.error(
                     "OpenAI API error %s: %s",
                     response.status_code,
-                    response.text[:500],
+                    error_text,
+                )
+                log_openai_exchange(
+                    messages=messages,
+                    response_text="",
+                    model_name=self.model,
+                    duration_ms=duration_ms,
+                    status="failed",
+                    error_message=f"HTTP {response.status_code}: {error_text}",
                 )
                 return ""
 
             data = response.json()
-            return (data["choices"][0]["message"]["content"] or "").strip()
+            response_text = (data["choices"][0]["message"]["content"] or "").strip()
+            log_openai_exchange(
+                messages=messages,
+                response_text=response_text,
+                model_name=self.model,
+                duration_ms=duration_ms,
+                status="success" if response_text else "failed",
+                error_message="" if response_text else "Empty AI response",
+            )
+            return response_text
         except Exception as exc:
+            duration_ms = int((time.perf_counter() - started) * 1000)
             logger.error("OpenAI API error: %s", exc)
+            log_openai_exchange(
+                messages=messages,
+                response_text="",
+                model_name=self.model,
+                duration_ms=duration_ms,
+                status="failed",
+                error_message=str(exc),
+            )
             return ""
 
     def _call_json(
@@ -144,6 +192,67 @@ Provide matching analysis as JSON:
   "matching_skills": ["skill1", "skill2"],
   "missing_skills": ["skill1", "skill2"],
   "explanation": "<detailed explanation in 2-3 sentences>"
+}}"""
+
+JOB_RECOMMENDATIONS_PROMPT = """You are an AI career advisor for students in Kazakhstan.
+Rank the best HeadHunter job vacancies for a candidate using their job interests and academic transcript.
+
+What the student is looking for:
+{job_interests}
+
+Academic transcript:
+{transcript_text}
+
+Available vacancies from HeadHunter (JSON array):
+{vacancies_json}
+
+Instructions:
+- Match vacancies to the student's stated interests AND their education from the transcript.
+- Prefer roles aligned with completed courses and the student's preferences.
+- Return up to {limit} best matches sorted by match_score descending.
+- Use only vacancy_id values from the provided list (exact string ids).
+- Write explanation in {language_name}.
+
+Return JSON:
+{{
+  "recommendations": [
+    {{
+      "vacancy_id": "<id from list>",
+      "match_score": <integer 0-100>,
+      "matching_skills": ["skill1", "skill2"],
+      "missing_skills": ["skill1"],
+      "explanation": "<2-3 sentences why this vacancy fits>"
+    }}
+  ]
+}}"""
+
+HH_SEARCH_QUERY_PROMPT = """You are an AI career assistant for students in Kazakhstan.
+Build a concise HeadHunter (hh.kz) vacancy search query from the student's interests and academic transcript.
+
+Student job interests:
+{job_interests}
+
+Academic transcript:
+{transcript_text}
+
+HeadHunter area ids (use when city is clear):
+- 40 = all Kazakhstan
+- 159 = Astana
+- 160 = Almaty
+- 161 = Shymkent
+
+Rules:
+- "text" must be a short search query (2-6 meaningful words) suitable for hh.kz search.
+- Combine the student's interests with relevant education from the transcript.
+- Prefer Russian or Kazakh keywords commonly used in vacancy titles in Kazakhstan.
+- Do not include words like "ищу", "работу", "вакансию".
+- Write reasoning in {language_name}.
+
+Return JSON:
+{{
+  "text": "<hh search query>",
+  "area": "<area id as string, default 40>",
+  "reasoning": "<one sentence why this query fits>"
 }}"""
 
 COVER_LETTER_PROMPT = """You are a professional cover letter writer. Write a compelling cover letter.
@@ -296,12 +405,12 @@ def resolve_language_name(code: Optional[str] = None) -> str:
 def analyze_resume(resume_text: str, target_role: str = "", language: str = "kk") -> dict:
     client = get_client()
     prompt = RESUME_ANALYSIS_PROMPT.format(
-        resume_text=resume_text,
-        target_role=target_role or "General",
+        resume_text=wrap_untrusted(resume_text, label="resume"),
+        target_role=wrap_untrusted(target_role or "General", label="target_role"),
     )
     return client._call_json(
         [
-            {"role": "system", "content": "You are an expert HR analyst."},
+            {"role": "system", "content": hardened_system("You are an expert HR analyst.")},
             {"role": "user", "content": prompt},
         ]
     )
@@ -310,21 +419,71 @@ def analyze_resume(resume_text: str, target_role: str = "", language: str = "kk"
 def match_vacancy(candidate_data: dict, vacancy_data: dict) -> dict:
     client = get_client()
     prompt = VACANCY_MATCHING_PROMPT.format(
-        candidate_skills=candidate_data.get("skills", ""),
-        candidate_experience=candidate_data.get("experience", ""),
-        candidate_education=candidate_data.get("education", ""),
-        candidate_location=candidate_data.get("location", ""),
-        vacancy_title=vacancy_data.get("title", ""),
-        vacancy_requirements=vacancy_data.get("requirements", ""),
-        vacancy_skills=vacancy_data.get("skills", ""),
-        vacancy_location=vacancy_data.get("location", ""),
-        vacancy_type=vacancy_data.get("type", ""),
+        candidate_skills=wrap_untrusted(candidate_data.get("skills", ""), label="candidate_skills"),
+        candidate_experience=wrap_untrusted(candidate_data.get("experience", ""), label="candidate_experience"),
+        candidate_education=wrap_untrusted(candidate_data.get("education", ""), label="candidate_education"),
+        candidate_location=wrap_untrusted(candidate_data.get("location", ""), label="candidate_location"),
+        vacancy_title=wrap_untrusted(vacancy_data.get("title", ""), label="vacancy_title"),
+        vacancy_requirements=wrap_untrusted(vacancy_data.get("requirements", ""), label="vacancy_requirements"),
+        vacancy_skills=wrap_untrusted(vacancy_data.get("skills", ""), label="vacancy_skills"),
+        vacancy_location=wrap_untrusted(vacancy_data.get("location", ""), label="vacancy_location"),
+        vacancy_type=wrap_untrusted(vacancy_data.get("type", ""), label="vacancy_type"),
     )
     return client._call_json(
         [
-            {"role": "system", "content": "You are an AI job matching expert."},
+            {"role": "system", "content": hardened_system("You are an AI job matching expert.")},
             {"role": "user", "content": prompt},
         ]
+    )
+
+
+def recommend_jobs(
+    candidate_data: dict,
+    vacancies: list[dict],
+    *,
+    limit: int = 10,
+    language: str = "ru",
+    transcript_text: str = "",
+) -> dict:
+    client = get_client()
+    language_name = resolve_language_name(language)
+
+    prompt = JOB_RECOMMENDATIONS_PROMPT.format(
+        job_interests=wrap_untrusted(candidate_data.get("job_interests", ""), label="job_interests"),
+        transcript_text=wrap_untrusted(transcript_text or "No transcript data available.", label="transcript"),
+        vacancies_json=wrap_untrusted(json.dumps(vacancies, ensure_ascii=False), label="vacancies_json"),
+        limit=limit,
+        language_name=language_name,
+    )
+    return client._call_json(
+        [
+            {"role": "system", "content": hardened_system("You are an AI career advisor.")},
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=3000,
+    )
+
+
+def build_hh_search_query(
+    candidate_data: dict,
+    *,
+    language: str = "ru",
+    transcript_text: str = "",
+) -> dict:
+    client = get_client()
+    language_name = resolve_language_name(language)
+
+    prompt = HH_SEARCH_QUERY_PROMPT.format(
+        job_interests=wrap_untrusted(candidate_data.get("job_interests", ""), label="job_interests"),
+        transcript_text=wrap_untrusted(transcript_text or "No transcript data available.", label="transcript"),
+        language_name=language_name,
+    )
+    return client._call_json(
+        [
+            {"role": "system", "content": hardened_system("You are an AI job search assistant.")},
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=500,
     )
 
 
@@ -337,18 +496,18 @@ def generate_cover_letter(
     client = get_client()
     language_name = resolve_language_name(language)
     prompt = COVER_LETTER_PROMPT.format(
-        candidate_name=candidate_data.get("name", ""),
-        candidate_skills=candidate_data.get("skills", ""),
-        candidate_experience=candidate_data.get("experience", ""),
-        position=vacancy_data.get("title", ""),
-        company=vacancy_data.get("company", ""),
-        job_description=vacancy_data.get("description", ""),
-        tone=tone,
+        candidate_name=wrap_untrusted(candidate_data.get("name", ""), label="candidate_name"),
+        candidate_skills=wrap_untrusted(candidate_data.get("skills", ""), label="candidate_skills"),
+        candidate_experience=wrap_untrusted(candidate_data.get("experience", ""), label="candidate_experience"),
+        position=wrap_untrusted(vacancy_data.get("title", ""), label="position"),
+        company=wrap_untrusted(vacancy_data.get("company", ""), label="company"),
+        job_description=wrap_untrusted(vacancy_data.get("description", ""), label="job_description"),
+        tone=wrap_untrusted(tone, label="tone"),
     )
     prompt += f"\n\nWrite the cover letter entirely in {language_name}."
     return client._call_json(
         [
-            {"role": "system", "content": "You are a professional cover letter writer."},
+            {"role": "system", "content": hardened_system("You are a professional cover letter writer.")},
             {"role": "user", "content": prompt},
         ]
     )
@@ -362,15 +521,15 @@ def prepare_interview(
     client = get_client()
     language_name = resolve_language_name(language)
     prompt = INTERVIEW_PREP_PROMPT.format(
-        position=vacancy_data.get("title", ""),
-        company=vacancy_data.get("company", ""),
-        requirements=vacancy_data.get("requirements", ""),
-        difficulty=difficulty,
+        position=wrap_untrusted(vacancy_data.get("title", ""), label="position"),
+        company=wrap_untrusted(vacancy_data.get("company", ""), label="company"),
+        requirements=wrap_untrusted(vacancy_data.get("requirements", ""), label="requirements"),
+        difficulty=wrap_untrusted(difficulty, label="difficulty"),
     )
     prompt += f"\n\nWrite all questions and tips entirely in {language_name}."
     return client._call_json(
         [
-            {"role": "system", "content": "You are an expert interview coach."},
+            {"role": "system", "content": hardened_system("You are an expert interview coach.")},
             {"role": "user", "content": prompt},
         ]
     )
@@ -379,20 +538,34 @@ def prepare_interview(
 def analyze_skill_gap(current_skills: list, target_role: str) -> dict:
     client = get_client()
     prompt = SKILL_GAP_PROMPT.format(
-        current_skills=", ".join(current_skills) if current_skills else "None specified",
-        target_role=target_role,
+        current_skills=wrap_untrusted(
+            ", ".join(current_skills) if current_skills else "None specified",
+            label="current_skills",
+        ),
+        target_role=wrap_untrusted(target_role, label="target_role"),
     )
     return client._call_json(
         [
-            {"role": "system", "content": "You are a career development advisor."},
+            {"role": "system", "content": hardened_system("You are a career development advisor.")},
             {"role": "user", "content": prompt},
         ]
     )
 
 
-def career_coach_chat(message: str, history: list = None, language: str = "kk") -> str:
+def career_coach_chat(
+    message: str,
+    history: list = None,
+    language: str = "kk",
+    *,
+    history_trusted: bool = True,
+) -> str:
     """Backward-compatible wrapper — resume assistant reply text only."""
-    result = resume_assistant_chat(message, history=history, language=language)
+    result = resume_assistant_chat(
+        message,
+        history=history,
+        language=language,
+        history_trusted=history_trusted,
+    )
     return result.get("reply", "")
 
 
@@ -408,9 +581,9 @@ def _job_context_block(
         return ""
     return (
         "Target vacancy:\n"
-        f"Role: {title or '(not specified)'}\n"
-        f"Company: {comp or '(not specified)'}\n"
-        f"Job description:\n{desc or '(not specified)'}\n\n"
+        f"Role: {wrap_untrusted(title or '(not specified)', label='job_title')}\n"
+        f"Company: {wrap_untrusted(comp or '(not specified)', label='company')}\n"
+        f"Job description:\n{wrap_untrusted(desc or '(not specified)', label='job_description')}\n\n"
     )
 
 
@@ -424,6 +597,8 @@ def resume_assistant_chat(
     job_title: str = "",
     company: str = "",
     job_description: str = "",
+    *,
+    history_trusted: bool = False,
 ) -> dict:
     """
     Mode-aware writing assistant.
@@ -437,15 +612,13 @@ def resume_assistant_chat(
     if mode not in ("resume", "cover_letter", "interview", "mock_interview"):
         mode = "resume"
 
-    history_text = ""
-    if history:
-        for msg in history[-12:]:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
-            history_text += f"{role}: {content}\n"
+    history_text = format_history_for_prompt(history, trusted=history_trusted)
 
     draft = (resume_draft or "").strip()
-    draft_block = draft if draft else "(empty)"
+    draft_block = wrap_untrusted(
+        draft if draft else "(empty)",
+        label="document_draft",
+    )
 
     job_ctx = _job_context_block(job_title, company, job_description)
 
@@ -465,7 +638,8 @@ def resume_assistant_chat(
             f"- document_draft must be ONLY the letter, never the resume.\n"
         )
         context_block = (
-            f"User resume (context only — do not copy wholesale):\n{(resume_context or '').strip() or '(none)'}\n\n"
+            f"User resume (context only — do not copy wholesale):\n"
+            f"{wrap_untrusted((resume_context or '').strip() or '(none)', label='resume_context')}\n\n"
             if (resume_context or "").strip()
             else ""
         )
@@ -474,7 +648,7 @@ def resume_assistant_chat(
             f"{context_block}"
             f"Current cover letter draft:\n{draft_block}\n\n"
             f"Conversation so far:\n{history_text or '(none)'}\n\n"
-            f"User message:\n{message}"
+            f"User message:\n{wrap_untrusted(message, label='user_message')}"
         )
     elif mode == "mock_interview":
         target_role = (job_title or "").strip() or "the role stated by the candidate"
@@ -511,18 +685,19 @@ def resume_assistant_chat(
             f"for {target_role} only.\n"
         )
         context_block = (
-            f"Candidate resume (context):\n{(resume_context or '').strip() or '(none)'}\n\n"
+            f"Candidate resume (context):\n"
+            f"{wrap_untrusted((resume_context or '').strip() or '(none)', label='resume_context')}\n\n"
             if (resume_context or "").strip()
             else ""
         )
         user_content = (
-            f"TARGET ROLE: {target_role}\n"
-            f"COMPANY: {target_company}\n"
-            f"JOB DETAILS: {target_jd}\n\n"
+            f"TARGET ROLE: {wrap_untrusted(target_role, label='job_title')}\n"
+            f"COMPANY: {wrap_untrusted(target_company, label='company')}\n"
+            f"JOB DETAILS: {wrap_untrusted(target_jd, label='job_description')}\n\n"
             f"{context_block}"
             f"Current session scorecard:\n{draft_block}\n\n"
             f"Conversation so far:\n{history_text or '(none)'}\n\n"
-            f"Candidate message:\n{message}"
+            f"Candidate message:\n{wrap_untrusted(message, label='user_message')}"
         )
     elif mode == "interview":
         target_role = (job_title or "").strip() or "the role from the vacancy"
@@ -551,7 +726,8 @@ def resume_assistant_chat(
             f"6. Do not invent fake experience from the resume.\n"
         )
         context_block = (
-            f"User resume (context):\n{(resume_context or '').strip() or '(none)'}\n\n"
+            f"User resume (context):\n"
+            f"{wrap_untrusted((resume_context or '').strip() or '(none)', label='resume_context')}\n\n"
             if (resume_context or "").strip()
             else ""
         )
@@ -560,7 +736,7 @@ def resume_assistant_chat(
             f"{context_block}"
             f"Current interview rehearsal notes:\n{draft_block}\n\n"
             f"Conversation so far:\n{history_text or '(none)'}\n\n"
-            f"User message:\n{message}"
+            f"User message:\n{wrap_untrusted(message, label='user_message')}"
         )
     else:
         system = (
@@ -584,12 +760,12 @@ def resume_assistant_chat(
             f"{job_ctx}"
             f"Current resume draft:\n{draft_block if draft else '(empty — help the user create a resume from scratch)'}\n\n"
             f"Conversation so far:\n{history_text or '(none)'}\n\n"
-            f"User message:\n{message}"
+            f"User message:\n{wrap_untrusted(message, label='user_message')}"
         )
 
     raw = client._call(
         [
-            {"role": "system", "content": system},
+            {"role": "system", "content": hardened_system(system)},
             {"role": "user", "content": user_content},
         ],
         temperature=0.45 if mode == "mock_interview" else 0.6,
@@ -611,10 +787,10 @@ def resume_assistant_chat(
 
     try:
         data = json.loads(cleaned)
-        reply = str(data.get("reply") or "").strip()
-        updated = data.get("document_draft", data.get("resume_draft", None))
-        if updated is not None:
-            updated = str(updated).strip() or None
+        reply = sanitize_reply_text(str(data.get("reply") or ""))
+        updated = sanitize_document_draft(
+            data.get("document_draft", data.get("resume_draft", None))
+        )
         if not reply:
             reply = "Готово." if language_name.startswith("Russian") else (
                 "Дайын." if "Kazakh" in language_name else "Done."
@@ -626,7 +802,7 @@ def resume_assistant_chat(
         }
     except json.JSONDecodeError:
         return {
-            "reply": cleaned,
+            "reply": sanitize_reply_text(cleaned),
             "document_draft": None,
             "resume_draft": None,
         }
@@ -655,8 +831,11 @@ def structure_resume_from_text(raw_text: str, language: str = "kk", source: str 
     )
     raw = client._call(
         [
-            {"role": "system", "content": system},
-            {"role": "user", "content": text[:12000]},
+            {"role": "system", "content": hardened_system(system)},
+            {
+                "role": "user",
+                "content": wrap_untrusted(text, label="raw_resume_text"),
+            },
         ],
         temperature=0.3,
         max_tokens=3500,
@@ -728,7 +907,7 @@ def assistant_chat(message: str, history: list = None, language: str = "kk") -> 
     """General / employer assistant chat."""
     client = get_client()
     language_name = resolve_language_name(language)
-    system = (
+    system = hardened_system(
         "You are QalaJob AI — an assistant for students and employers.\n\n"
         "FOR STUDENTS: resume review, career coaching, interview prep, job search, skills.\n"
         "FOR EMPLOYERS: vacancy generation, job descriptions, interview questions, "
@@ -741,13 +920,20 @@ def assistant_chat(message: str, history: list = None, language: str = "kk") -> 
         "4. Keep responses professional. Do not invent company facts."
     )
     messages: list[dict] = [{"role": "system", "content": system}]
-    if history:
-        for msg in history[-10:]:
-            role = msg.get("role", "user")
-            if role not in ("user", "assistant"):
-                role = "user"
-            messages.append({"role": role, "content": str(msg.get("content", ""))})
-    messages.append({"role": "user", "content": str(message)})
+    safe_history = sanitize_client_history(history)
+    for msg in safe_history:
+        messages.append(
+            {
+                "role": "user",
+                "content": wrap_untrusted(msg["content"], label="prior_user_message"),
+            }
+        )
+    messages.append(
+        {
+            "role": "user",
+            "content": wrap_untrusted(str(message), label="user_message"),
+        }
+    )
     return client._call(messages, temperature=0.7, max_tokens=3000)
 
 
@@ -757,7 +943,7 @@ def enhance_resume(resume_text: str, language: str = "kk") -> str:
     prompt = (
         "You are a professional resume writer. Enhance and improve the following resume "
         "while preserving the original information.\n\n"
-        f"Original Resume:\n{resume_text}\n\n"
+        f"Original Resume:\n{wrap_untrusted(resume_text, label='resume')}\n\n"
         "Improve structure, action verbs, achievements, professional language, and ATS keywords.\n"
         f"CRITICAL: Prefer writing the enhanced resume in {language_name}, "
         "unless the original is clearly in another language — then keep that language.\n"
@@ -767,7 +953,7 @@ def enhance_resume(resume_text: str, language: str = "kk") -> str:
         [
             {
                 "role": "system",
-                "content": (
+                "content": hardened_system(
                     f"You are a professional resume writer. "
                     f"Prefer writing in {language_name}."
                 ),
@@ -780,15 +966,15 @@ def enhance_resume(resume_text: str, language: str = "kk") -> str:
 def generate_vacancy_description(data: dict) -> dict:
     client = get_client()
     prompt = VACANCY_GENERATION_PROMPT.format(
-        position=data.get("position", ""),
-        company=data.get("company", ""),
-        location=data.get("location", ""),
-        job_type=data.get("job_type", "Full Time"),
-        salary_range=data.get("salary_range", "Negotiable"),
+        position=wrap_untrusted(data.get("position", ""), label="position"),
+        company=wrap_untrusted(data.get("company", ""), label="company"),
+        location=wrap_untrusted(data.get("location", ""), label="location"),
+        job_type=wrap_untrusted(data.get("job_type", "Full Time"), label="job_type"),
+        salary_range=wrap_untrusted(data.get("salary_range", "Negotiable"), label="salary_range"),
     )
     return client._call_json(
         [
-            {"role": "system", "content": "You are an HR expert."},
+            {"role": "system", "content": hardened_system("You are an HR expert.")},
             {"role": "user", "content": prompt},
         ]
     )
@@ -817,12 +1003,12 @@ def adapt_resume_to_vacancy(
         f'"missing_skills":["skill1","skill2"]}}'
     )
     user = (
-        f"VACANCY:\n{(vacancy_text or '')[:8000]}\n\n"
-        f"CURRENT RESUME:\n{(resume_text or '')[:8000] or '(empty — create a strong draft from vacancy keywords only using placeholders for unknown facts)'}"
+        f"VACANCY:\n{wrap_untrusted(vacancy_text or '', label='vacancy')}\n\n"
+        f"CURRENT RESUME:\n{wrap_untrusted(resume_text or '(empty — create a strong draft from vacancy keywords only using placeholders for unknown facts)', label='resume')}"
     )
     raw = client._call(
         [
-            {"role": "system", "content": system},
+            {"role": "system", "content": hardened_system(system)},
             {"role": "user", "content": user},
         ],
         temperature=0.45,

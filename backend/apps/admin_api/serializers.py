@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from apps.lms_sync.models import LmsSyncLog
+from apps.ai.models import AiActionLog
 from .models import UserBan, AuditLog, ModerationQueueItem, SystemSettings
 
 class UserBanSerializer(serializers.ModelSerializer):
@@ -89,3 +91,77 @@ class DashboardStatsSerializer(serializers.Serializer):
     revenue_today = serializers.DecimalField(max_digits=10, decimal_places=2)
     revenue_month = serializers.DecimalField(max_digits=10, decimal_places=2)
     system_status = serializers.CharField()
+
+
+class LmsSyncLogSerializer(serializers.ModelSerializer):
+    duration_seconds = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LmsSyncLog
+        fields = [
+            "id",
+            "started_at",
+            "finished_at",
+            "duration_seconds",
+            "status",
+            "students_created",
+            "students_updated",
+            "students_skipped",
+            "transcripts_created",
+            "transcripts_updated",
+            "error_message",
+        ]
+
+    def get_duration_seconds(self, obj):
+        if not obj.finished_at:
+            return None
+        delta = obj.finished_at - obj.started_at
+        return max(int(delta.total_seconds()), 0)
+
+
+class LmsSyncScheduleSerializer(serializers.Serializer):
+    enabled = serializers.BooleanField()
+    hour = serializers.IntegerField(min_value=0, max_value=23)
+    minute = serializers.IntegerField(min_value=0, max_value=59)
+    time = serializers.CharField(read_only=True)
+    timezone = serializers.CharField(read_only=True)
+    last_scheduled_run = serializers.DateTimeField(read_only=True, allow_null=True)
+    next_run_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+
+
+class AiActionLogSerializer(serializers.ModelSerializer):
+    feature_label = serializers.SerializerMethodField()
+    user_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AiActionLog
+        fields = [
+            "id",
+            "created_at",
+            "user_name",
+            "user_login",
+            "student_id",
+            "feature",
+            "feature_label",
+            "endpoint",
+            "status",
+            "model_name",
+            "duration_ms",
+            "request_payload",
+            "ai_input",
+            "ai_output",
+            "error_message",
+        ]
+
+    def get_feature_label(self, obj):
+        from apps.ai.models import AIFeatureType
+
+        try:
+            return AIFeatureType(obj.feature).label
+        except ValueError:
+            return obj.feature
+
+    def get_user_name(self, obj):
+        full_name = obj.user.get_full_name().strip()
+        return full_name or obj.user_login or str(obj.user_id)
