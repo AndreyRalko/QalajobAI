@@ -67,7 +67,7 @@ export default function CTA() {
 
             </Link>
 
-            <Link href="/login">
+            <Link href="/about">
 
               <Button
                 variant="outline"

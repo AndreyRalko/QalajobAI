@@ -37,7 +37,6 @@ export default function AISection() {
     t.aiSection.feature2,
     t.aiSection.feature3,
     t.aiSection.feature4,
-    t.aiSection.feature5,
   ];
 
   return (

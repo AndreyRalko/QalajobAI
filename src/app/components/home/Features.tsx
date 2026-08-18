@@ -7,28 +7,20 @@ import { getMessages } from "@/lib/i18n";
 
 const features = [
   {
-    icon: "🧠",
+    icon: "📄",
     color: "from-cyan-400 to-blue-500",
   },
   {
-    icon: "⚡",
+    icon: "✉️",
     color: "from-purple-400 to-pink-500",
   },
   {
-    icon: "📄",
+    icon: "🎙️",
     color: "from-cyan-400 to-teal-500",
   },
   {
-    icon: "🎓",
+    icon: "🎯",
     color: "from-green-400 to-emerald-500",
-  },
-  {
-    icon: "📊",
-    color: "from-yellow-400 to-orange-500",
-  },
-  {
-    icon: "👥",
-    color: "from-pink-400 to-rose-500",
   },
 ];
 
@@ -62,18 +54,6 @@ export default function Features() {
       description: t.featuresSection.feature4Desc,
       icon: features[3].icon,
       color: features[3].color,
-    },
-    {
-      title: t.featuresSection.feature5Title,
-      description: t.featuresSection.feature5Desc,
-      icon: features[4].icon,
-      color: features[4].color,
-    },
-    {
-      title: t.featuresSection.feature6Title,
-      description: t.featuresSection.feature6Desc,
-      icon: features[5].icon,
-      color: features[5].color,
     },
   ];
 
@@ -128,7 +108,7 @@ export default function Features() {
         </motion.div>
 
         {/* FEATURES GRID */}
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 gap-8">
 
           {featureData.map((feature, index) => (
 

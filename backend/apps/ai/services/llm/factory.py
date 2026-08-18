@@ -33,7 +33,7 @@ def get_local_provider_client() -> OpenAIClient:
     if _local_client is None:
         _local_client = OpenAIClient(
             api_key=getattr(settings, "LLM_LOCAL_API_KEY", "ollama") or "ollama",
-            model=getattr(settings, "LLM_LOCAL_MODEL", "qwen2.5:7b-instruct"),
+            model=getattr(settings, "LLM_LOCAL_MODEL", "gemma3:4b"),
             base_url=getattr(settings, "LLM_LOCAL_BASE_URL", "http://127.0.0.1:11434/v1"),
             timeout=getattr(settings, "LLM_LOCAL_TIMEOUT", 180),
             provider="local",

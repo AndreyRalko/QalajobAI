@@ -45,7 +45,7 @@
     OPENAI_API_KEY=sk-...
     LLM_HYBRID_ENABLED=true
     LLM_LOCAL_BASE_URL=http://127.0.0.1:11434/v1
-    LLM_LOCAL_MODEL=qwen2.5:7b-instruct
+    LLM_LOCAL_MODEL=gemma3:4b
     LLM_FALLBACK_TO_OPENAI=true
 
 
@@ -60,7 +60,7 @@
 -----------------------------------------------
   1) Установить Ollama: https://ollama.com
   2) Скачать модель:
-       ollama pull qwen2.5:7b-instruct
+       ollama pull gemma3:4b
   3) Проверка:
        ollama list
 
@@ -88,7 +88,7 @@
   Или просто проверьте, что Ollama уже работает:
     ollama list
 
-  Если модели нет — ollama pull qwen2.5:7b-instruct
+  Если модели нет — ollama pull gemma3:4b
 
 
 ТЕРМИНАЛ 2 — Backend (Django)  *** ОБЯЗАТЕЛЬНО runserver ***
@@ -124,6 +124,7 @@
 ================================================================================
 
   Студент:      логин Иванов_Иван      пароль Student123
+  Студент (тест): логин Демо_Алина       пароль Student123   StudentID DEMO90001
   Работодатель: логин Петров_Петр       пароль Employer123
   Админ:        логин Сидоров_Админ     пароль Admin1234
 

@@ -88,3 +88,15 @@ class AuthAPITests(TestCase):
         self.assertEqual(response.data['data']['user']['role'], 'student')
         self.assertEqual(response.data['data']['user']['login'], 'Иванов_Иван')
         self.assertEqual(response.data['data']['user']['student_id'], '48958')
+
+    def test_preset_test_student_login(self):
+        load_preset_users()
+        url = reverse('users:login')
+        response = self.client.post(url, {
+            'login': 'Демо_Алина',
+            'password': 'Student123',
+        })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['data']['user']['role'], 'student')
+        self.assertEqual(response.data['data']['user']['login'], 'Демо_Алина')
+        self.assertEqual(response.data['data']['user']['student_id'], 'DEMO90001')

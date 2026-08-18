@@ -75,22 +75,32 @@ export default function LoginForm() {
 
         <div className="mt-12">
           <div className="space-y-5">
-            <input
-              type="text"
-              autoComplete="username"
-              value={login}
-              onChange={(e) => setLogin(e.target.value)}
-              placeholder={t("auth.login")}
-              className="w-full h-16 rounded-[24px] border border-white/10 bg-white/5 px-6 text-lg text-white outline-none focus:border-cyan-400 transition backdrop-blur-xl"
-            />
+            <div>
+              <label className="mb-2 block px-1 text-sm text-white/50">
+                {t("auth.login")}
+              </label>
+              <input
+                type="text"
+                autoComplete="username"
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
+                placeholder={t("auth.login")}
+                className="w-full h-16 rounded-[24px] border border-white/10 bg-white/5 px-6 text-lg text-white outline-none focus:border-cyan-400 transition backdrop-blur-xl"
+              />
+            </div>
 
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={t("auth.password")}
-              className="w-full h-16 rounded-[24px] border border-white/10 bg-white/5 px-6 text-lg text-white outline-none focus:border-cyan-400 transition backdrop-blur-xl"
-            />
+            <div>
+              <label className="mb-2 block px-1 text-sm text-white/50">
+                {t("auth.password")}
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={t("auth.password")}
+                className="w-full h-16 rounded-[24px] border border-white/10 bg-white/5 px-6 text-lg text-white outline-none focus:border-cyan-400 transition backdrop-blur-xl"
+              />
+            </div>
           </div>
 
           <button

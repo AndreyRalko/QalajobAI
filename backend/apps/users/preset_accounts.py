@@ -13,6 +13,15 @@ PRESET_ACCOUNTS = [
         "password_md5": "e4a6a34a2c625d52f26846f5e3d22064",
     },
     {
+        "login": "Демо_Алина",
+        "last_name": "Демо",
+        "first_name": "Алина",
+        "role": "student",
+        "student_id": "DEMO90001",
+        # Student123
+        "password_md5": "e4a6a34a2c625d52f26846f5e3d22064",
+    },
+    {
         "login": "Петров_Петр",
         "last_name": "Петров",
         "first_name": "Петр",

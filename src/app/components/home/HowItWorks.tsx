@@ -13,24 +13,30 @@ export default function HowItWorks() {
       number: "01",
       title: t.howSection.step1Title,
       description: t.howSection.step1Desc,
-      icon: "👤",
+      icon: "🔑",
     },
     {
       number: "02",
       title: t.howSection.step2Title,
       description: t.howSection.step2Desc,
-      icon: "💬",
+      icon: "📄",
     },
     {
       number: "03",
       title: t.howSection.step3Title,
       description: t.howSection.step3Desc,
-      icon: "📄",
+      icon: "🎯",
+    },
+    {
+      number: "04",
+      title: t.howSection.step4Title,
+      description: t.howSection.step4Desc,
+      icon: "🎙️",
     },
   ];
 
   return (
-    <section className="relative py-32 overflow-hidden">
+    <section id="how-it-works" className="relative py-32 overflow-hidden scroll-mt-24">
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] bg-cyan-500/10 blur-[200px]" />
       </div>
@@ -56,7 +62,7 @@ export default function HowItWorks() {
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-8">
           {steps.map((step, index) => (
             <motion.div
               key={step.number}

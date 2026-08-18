@@ -13,8 +13,8 @@ export default function Hero() {
 
   const stats = [
     ["AI", t.stats.ai],
+    ["hh.kz", t.stats.hh],
     ["PDF", t.stats.pdf],
-    ["3", t.stats.languages],
   ];
 
   return (
@@ -87,7 +87,7 @@ export default function Hero() {
                 </Button>
               </Link>
 
-              <Link href="/login">
+              <Link href="#how-it-works">
                 <Button
                   variant="outline"
                   className="h-14 px-8 rounded-2xl border-white/10 bg-white/5 backdrop-blur-xl hover:bg-white/10"
@@ -170,18 +170,18 @@ export default function Hero() {
                   <div>
 
                     <p className="text-white/40 text-sm">
-                      Frontend Intern
+                      {t.hero.card1Label}
                     </p>
 
-                    <h3 className="mt-2 text-3xl font-black">
-                      92% Match
+                    <h3 className="mt-2 text-2xl font-black leading-tight">
+                      {t.hero.card1Value}
                     </h3>
 
                   </div>
 
                   <div className="w-12 h-12 rounded-xl bg-cyan-400/20 flex items-center justify-center text-xl">
 
-                    🚀
+                    📄
 
                   </div>
 
@@ -189,7 +189,7 @@ export default function Hero() {
 
                 <div className="mt-5 h-2 rounded-full bg-white/10 overflow-hidden">
 
-                  <div className="h-full w-[92%] bg-cyan-400 rounded-full" />
+                  <div className="h-full w-[88%] bg-cyan-400 rounded-full" />
 
                 </div>
 
@@ -210,18 +210,18 @@ export default function Hero() {
                   <div>
 
                     <p className="text-white/40 text-sm">
-                      UI/UX Designer
+                      {t.hero.card2Label}
                     </p>
 
-                    <h3 className="mt-2 text-3xl font-black">
-                      87% Match
+                    <h3 className="mt-2 text-2xl font-black leading-tight">
+                      {t.hero.card2Value}
                     </h3>
 
                   </div>
 
                   <div className="w-12 h-12 rounded-xl bg-pink-400/20 flex items-center justify-center text-xl">
 
-                    🎨
+                    🎯
 
                   </div>
 
@@ -229,7 +229,7 @@ export default function Hero() {
 
                 <div className="mt-5 h-2 rounded-full bg-white/10 overflow-hidden">
 
-                  <div className="h-full w-[87%] bg-cyan-400 rounded-full" />
+                  <div className="h-full w-[80%] bg-cyan-400 rounded-full" />
 
                 </div>
 
