@@ -2,23 +2,13 @@ from django.test import TestCase
 from unittest.mock import patch
 from django.contrib.auth.models import User
 
-from apps.transcripts.models import Transcript
 from apps.users.models import UserProfile, UserRole
 
-from .services.mappers import map_student_row, map_transcript_row
-from .services.paramiko_compat import ensure_paramiko_dsskey_compat
+from .services.mappers import map_student_row
 from .services.sync_students import sync_students_from_rows
-from .services.sync_transcripts import sync_transcripts_from_rows
 
 
 class MapperTests(TestCase):
-    def test_paramiko_compat_allows_sshtunnel_import(self):
-        ensure_paramiko_dsskey_compat()
-        import paramiko
-
-        self.assertTrue(hasattr(paramiko, "DSSKey"))
-        from sshtunnel import SSHTunnelForwarder  # noqa: F401
-
     def test_map_student_row_uses_external_login(self):
         row = {
             "StudentID": 48958,
@@ -32,23 +22,6 @@ class MapperTests(TestCase):
         self.assertEqual(mapped["student_id"], "48958")
         self.assertEqual(mapped["login"], "ivanov.student")
         self.assertEqual(mapped["patronymic"], "Иванович")
-
-    def test_map_transcript_row(self):
-        row = {
-            "id": 1956633,
-            "StudentID": "48958",
-            "code": "_HIST61108",
-            "credits": 5,
-            "alpha": "C+",
-            "numeral": "2.33",
-            "total": "72.8285714286",
-            "ru": "История Казахстана",
-            "deleted": 0,
-        }
-        lms_id, defaults = map_transcript_row(row)
-        self.assertEqual(lms_id, 1956633)
-        self.assertEqual(defaults["student_id"], "48958")
-        self.assertEqual(defaults["subject_code"], "_HIST61108")
 
 
 class SyncStudentsTests(TestCase):
@@ -90,31 +63,6 @@ class SyncStudentsTests(TestCase):
         stats = sync_students_from_rows(rows)
         self.assertEqual(stats["students_skipped"], 1)
         self.assertFalse(UserProfile.objects.filter(student_id="88801").exists())
-
-
-class SyncTranscriptsTests(TestCase):
-    def test_sync_transcripts_upsert(self):
-        rows = [
-            {
-                "id": 900001,
-                "StudentID": "48958",
-                "code": "_TEST0001",
-                "credits": 3,
-                "alpha": "B",
-                "deleted": 0,
-            }
-        ]
-        stats = sync_transcripts_from_rows(rows)
-        self.assertEqual(stats["transcripts_created"], 1)
-        self.assertTrue(Transcript.objects.filter(lms_id=900001).exists())
-
-        rows[0]["alpha"] = "A"
-        stats = sync_transcripts_from_rows(rows)
-        self.assertEqual(stats["transcripts_updated"], 1)
-        self.assertEqual(
-            Transcript.objects.get(lms_id=900001).alpha_mark,
-            "A",
-        )
 
 
 class LmsSyncScheduleTests(TestCase):

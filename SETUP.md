@@ -85,10 +85,14 @@ LLM_DEFAULT_PROVIDER=local
 # HH_CLIENT_ID=...
 # HH_CLIENT_SECRET=...
 
-# LMS sync (опционально, нужен доступ к серверу вуза)
+# LMS sync (опционально: сначала откройте туннель вручную)
+# ssh -L 6080:localhost:6080 admin_kgu@192.168.10.2
 # LMS_SYNC_ENABLED=true
-# LMS_SSH_HOST=192.168.10.2
-# ...
+# LMS_MYSQL_HOST=127.0.0.1
+# LMS_MYSQL_PORT=6080
+# LMS_MYSQL_DB=nitro
+# LMS_MYSQL_USER=user
+# LMS_MYSQL_PASSWORD=user
 ```
 
 ### Шаг 4 — Миграции БД
@@ -231,9 +235,18 @@ LLM_FALLBACK_TO_OPENAI=false
 
 ## 6. LMS sync (опционально)
 
-Синхронизация студентов и транскриптов из MySQL вуза через SSH.
+Синхронизация логинов/паролей студентов из MySQL вуза.
+Код **не открывает** SSH-туннель сам — сначала откройте его вручную (как в AIScience), затем запустите команду.
 
-### Ручной запуск
+### Шаг 1 — Открыть туннель вручную
+
+```powershell
+ssh -L 6080:localhost:6080 admin_kgu@192.168.10.2
+```
+
+Оставьте это окно открытым.
+
+### Шаг 2 — Обновить логины и пароли
 
 ```powershell
 cd backend
@@ -241,15 +254,20 @@ cd backend
 python manage.py sync_lms_daily
 ```
 
-Только транскрипты:
+В `backend/.env` должны быть:
 
-```powershell
-python manage.py sync_lms_daily --transcripts-only
+```env
+LMS_SYNC_ENABLED=true
+LMS_MYSQL_HOST=127.0.0.1
+LMS_MYSQL_PORT=6080
+LMS_MYSQL_DB=nitro
+LMS_MYSQL_USER=user
+LMS_MYSQL_PASSWORD=user
 ```
 
 ### Автозапуск по расписанию
 
-Нужны **Redis + Celery**:
+Нужны **Redis + Celery**, и к моменту запуска туннель уже должен быть открыт:
 
 ```powershell
 # Терминал 4 — Redis (если установлен)
@@ -262,13 +280,6 @@ celery -A config worker -B -l info
 ```
 
 Расписание настраивается в UI: `/dashboard/admin/lms-sync`.
-
-Для ручного подключения к MySQL вуза (как при отладке):
-
-```powershell
-ssh -L 6080:localhost:6080 admin_kgu@192.168.10.2
-```
-
 ---
 
 ## 7. Полезные команды
@@ -345,4 +356,4 @@ Settings:
 
 - `config.settings.dev` — локальная разработка (SQLite)
 - `config.settings.server` — VPS (см. `DEPLOY.md`)
-- `config.settings.prod` — production (Postgres + HTTPS)
+- `config.settings.prod` — production (SQLite + Waitress, без Docker)

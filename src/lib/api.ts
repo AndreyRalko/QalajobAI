@@ -178,18 +178,6 @@ export async function setLanguageApi(language: string) {
   });
 }
 
-// ── Transcript ──────────────────────────────────────────────────────
-
-export async function getTranscriptsApi() {
-  return apiRequest<ApiTranscript[]>("/transcripts/", { auth: true });
-}
-
-export async function getTranscriptSummaryApi() {
-  return apiRequest<ApiTranscriptSummary>("/transcripts/summary/", {
-    auth: true,
-  });
-}
-
 // ── Vacancies ───────────────────────────────────────────────────────
 
 export async function getVacancies(
@@ -894,33 +882,6 @@ export interface ApiUser {
   email_verified?: boolean;
   date_joined?: string;
   created_at?: string;
-}
-
-export interface ApiTranscript {
-  id: number;
-  lms_id: number;
-  student_id: string;
-  subject_code: string;
-  credits: string;
-  alpha_mark: string;
-  numeral_mark: string;
-  total_mark: string;
-  subject_name_ru: string;
-  subject_name_kz: string;
-  subject_name_en: string;
-  course_number: number | null;
-  term: number | null;
-  is_passed: boolean;
-  ects: string;
-  deleted?: number;
-}
-
-export interface ApiTranscriptSummary {
-  student_id: string | null;
-  subjects: number;
-  graded_subjects?: number;
-  credits: string | null;
-  gpa: string | number | null;
 }
 
 export interface ApiVacancy {

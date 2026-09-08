@@ -45,11 +45,6 @@ export default function Sidebar() {
       href: "/dashboard/student/jobs",
       icon: "🎯",
     },
-    {
-      title: t("student.menu.transcript"),
-      href: "/dashboard/student/transcript",
-      icon: "📋",
-    },
   ];
 
   const isActive = (href: string) =>

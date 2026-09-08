@@ -1,0 +1,23 @@
+[Unit]
+Description=QalaJob AI API (Gunicorn + SQLite)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/QalajobAI/backend
+Environment=DJANGO_SETTINGS_MODULE=config.settings.prod
+EnvironmentFile=/opt/QalajobAI/backend/.env
+ExecStart=/opt/QalajobAI/backend/venv/bin/gunicorn \
+  --config gunicorn.conf.py \
+  config.wsgi:application
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

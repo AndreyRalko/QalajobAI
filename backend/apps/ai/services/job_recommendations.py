@@ -2,7 +2,6 @@ import re
 
 from django.conf import settings
 
-from .candidate_context import format_transcript_for_prompt
 from .hh_client import search_vacancies
 from .openai_client import build_hh_search_query as ai_build_hh_search_query
 from .openai_client import recommend_jobs as ai_recommend_jobs
@@ -60,38 +59,16 @@ def _heuristic_hh_search_query(candidate: dict) -> dict:
         if len(token) >= 3 and token not in stop_words
     ]
 
-    subject_names = [
-        subject.get("name", "")
-        for subject in candidate.get("transcript_subjects", [])[:5]
-        if subject.get("name")
-    ]
-    subject_tokens = []
-    for name in subject_names:
-        subject_tokens.extend(
-            token
-            for token in re.split(r"[^\w\u0400-\u04FF]+", name.lower())
-            if len(token) >= 5
-        )
-
-    query_tokens = tokens[:4]
-    if len(query_tokens) < 2 and subject_tokens:
-        query_tokens.extend(subject_tokens[:3])
-
-    text = " ".join(dict.fromkeys(query_tokens))[:80] or interests[:80]
+    text = " ".join(dict.fromkeys(tokens[:6]))[:80] or interests[:80]
     return {
         "text": text.strip(),
         "area": area,
-        "reasoning": "Поисковый запрос сформирован из интересов и предметов транскрипта.",
+        "reasoning": "Поисковый запрос сформирован из ваших интересов.",
     }
 
 
 def build_hh_search_query(candidate: dict, *, language: str = "ru") -> dict:
-    transcript_text = format_transcript_for_prompt(candidate)
-    ai_result = ai_build_hh_search_query(
-        candidate,
-        language=language,
-        transcript_text=transcript_text,
-    )
+    ai_result = ai_build_hh_search_query(candidate, language=language)
     text = (ai_result.get("text") or "").strip() if ai_result else ""
     if text:
         area = str(ai_result.get("area") or _detect_area(candidate.get("job_interests", "")))
@@ -104,16 +81,13 @@ def build_hh_search_query(candidate: dict, *, language: str = "ru") -> dict:
 
 
 def _candidate_keywords(candidate: dict) -> set[str]:
-    parts = [candidate.get("job_interests", "")]
-    for subject in candidate.get("transcript_subjects", []):
-        parts.append(subject.get("name", ""))
-        parts.append(subject.get("code", ""))
-
     tokens = set()
-    for part in parts:
-        for token in re.split(r"[^\w\u0400-\u04FF]+", part.lower()):
-            if len(token) >= 4:
-                tokens.add(token)
+    for token in re.split(
+        r"[^\w\u0400-\u04FF]+",
+        (candidate.get("job_interests") or "").lower(),
+    ):
+        if len(token) >= 4:
+            tokens.add(token)
     return tokens
 
 
@@ -155,9 +129,9 @@ def _heuristic_recommendations(
                 "matching_skills": matching[:8],
                 "missing_skills": [],
                 "explanation": (
-                    f"Совпадение по вашим интересам и предметам транскрипта ({len(matching)})."
+                    f"Совпадение по вашему поисковому запросу ({len(matching)})."
                     if matching
-                    else "Базовое совпадение по транскрипту и интересам."
+                    else "Базовое совпадение по вашему поисковому запросу."
                 ),
             }
         )
@@ -182,7 +156,6 @@ def _rank_hh_vacancies(
         vacancy_payload,
         limit=limit,
         language=language,
-        transcript_text=format_transcript_for_prompt(candidate),
     )
 
     recommendations = ai_result.get("recommendations") if ai_result else None

@@ -6,9 +6,9 @@
 
 - **Frontend:** Next.js 16, React 19, Tailwind, next-intl
 - **Backend:** Django 5, DRF, JWT, drf-spectacular
-- **БД:** SQLite (dev) / PostgreSQL (prod)
+- **БД:** SQLite (локально и Production)
 
-## Быстрый запуск
+## Быстрый запуск (локально)
 
 Подробная пошаговая инструкция: **[SETUP.md](./SETUP.md)** (Ollama, гибрид AI, LMS sync).
 
@@ -31,3 +31,13 @@ npm run dev
 - UI: http://localhost:3000  
 - API health: http://127.0.0.1:8000/api/health/  
 - Swagger: http://127.0.0.1:8000/api/schema/swagger-ui/
+
+## Production
+
+См. **[DEPLOY.md](./DEPLOY.md)** — **без Docker**, SQLite + Waitress `:8088` + Next `:3001` + systemd.
+
+Шаблоны env:
+
+- `backend/.env.prod.example`
+- `backend/.env.server.example`
+- `.env.production.example`

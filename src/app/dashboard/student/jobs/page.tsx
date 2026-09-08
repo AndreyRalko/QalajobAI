@@ -23,7 +23,7 @@ const MODULE_ICONS: Record<WorkspaceMode, string> = {
 };
 
 export default function StudentJobsPage() {
-  const { t, lang } = useTranslations();
+  const { t, locale } = useTranslations();
   const [jobInterests, setJobInterests] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export default function StudentJobsPage() {
       const data = await aiJobRecommendations({
         job_interests: interests,
         limit: 10,
-        language: lang === "kz" ? "kk" : lang,
+        language: locale,
       });
       setRecommendations(data.recommendations ?? []);
       setHhSearch(data.hh_search ?? null);

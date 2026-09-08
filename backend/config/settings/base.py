@@ -13,7 +13,8 @@ from celery.schedules import crontab
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env(DEBUG=(bool, False))
-environ.Env.read_env(os.path.join(BASE_DIR, '.env'), overwrite=True)
+# Process env (systemd) wins over values in the .env file.
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'), overwrite=False)
 
 SECRET_KEY = env('SECRET_KEY', default='dev-secret-key-change-in-production')
 
@@ -210,7 +211,7 @@ SIMPLE_JWT = {
 
 CORS_ALLOWED_ORIGINS = env(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000'
+    default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001'
 ).split(',')
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
@@ -228,8 +229,8 @@ CORS_ALLOW_HEADERS = [
 
 # ── Celery ──────────────────────────────────────────────────────────
 
-CELERY_BROKER_URL = env('REDIS_URL', default='redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_BROKER_URL = env('CELERY_BROKER_URL', default=env('REDIS_URL', default='redis://localhost:6379/0'))
+CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default=env('REDIS_URL', default='redis://localhost:6379/0'))
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -288,20 +289,15 @@ HH_CLIENT_SECRET = env('HH_CLIENT_SECRET', default='')
 HH_AREA = env('HH_AREA', default='40')  # 40 = Kazakhstan
 HH_USE_DEMO = env.bool('HH_USE_DEMO', default=False)
 
-# ── LMS Sync (SSH tunnel + external MySQL) ─────────────────────────
+# ── LMS Sync (manual SSH tunnel + local MySQL port) ────────────────
 
 LMS_SYNC_ENABLED = env.bool('LMS_SYNC_ENABLED', default=False)
 LMS_SYNC_CRON_HOUR = env.int('LMS_SYNC_CRON_HOUR', default=2)
 LMS_SYNC_CRON_MINUTE = env.int('LMS_SYNC_CRON_MINUTE', default=0)
 
-LMS_SSH_HOST = env('LMS_SSH_HOST', default='')
-LMS_SSH_PORT = env.int('LMS_SSH_PORT', default=22)
-LMS_SSH_USER = env('LMS_SSH_USER', default='')
-LMS_SSH_PASSWORD = env('LMS_SSH_PASSWORD', default='')
-LMS_SSH_PKEY_PATH = env('LMS_SSH_PKEY_PATH', default='')
-
-LMS_MYSQL_REMOTE_HOST = env('LMS_MYSQL_REMOTE_HOST', default='127.0.0.1')
-LMS_MYSQL_REMOTE_PORT = env.int('LMS_MYSQL_REMOTE_PORT', default=3306)
+# Connect to an already-forwarded local port (open tunnel yourself first).
+LMS_MYSQL_HOST = env('LMS_MYSQL_HOST', default='127.0.0.1')
+LMS_MYSQL_PORT = env.int('LMS_MYSQL_PORT', default=6080)
 LMS_MYSQL_DB = env('LMS_MYSQL_DB', default='')
 LMS_MYSQL_USER = env('LMS_MYSQL_USER', default='')
 LMS_MYSQL_PASSWORD = env('LMS_MYSQL_PASSWORD', default='')
@@ -325,7 +321,6 @@ WHERE s.isStudent = 1
 """.strip()
 
 LMS_STUDENTS_SQL = env('LMS_STUDENTS_SQL', default=_DEFAULT_STUDENTS_SQL)
-LMS_TRANSCRIPTS_SQL = env('LMS_TRANSCRIPTS_SQL', default='SELECT * FROM transcript')
 
 # ── Firebase ───────────────────────────────────────────────────────
 
@@ -364,14 +359,18 @@ LOGGING = {
             'formatter': 'simple',
         },
         'file': {
-            'class': 'logging.FileHandler',
+            'class': 'logging.handlers.RotatingFileHandler',
             'filename': LOGS_DIR / 'qalajob.log',
             'formatter': 'verbose',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
         },
         'security_file': {
-            'class': 'logging.FileHandler',
+            'class': 'logging.handlers.RotatingFileHandler',
             'filename': LOGS_DIR / 'security.log',
             'formatter': 'verbose',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
         },
     },
     'loggers': {
@@ -411,3 +410,12 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # ── Frontend URL ────────────────────────────────────────────────────
 
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
+
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in env('CSRF_TRUSTED_ORIGINS', default='').split(',')
+    if o.strip()
+]
+
+# OpenAPI / Swagger UI (disable in production by default)
+ENABLE_API_DOCS = env.bool('ENABLE_API_DOCS', default=False)

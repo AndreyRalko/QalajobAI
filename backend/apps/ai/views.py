@@ -249,7 +249,7 @@ class AIViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['post'], url_path='job-recommendations')
     def job_recommendations(self, request):
         """
-        Recommend HeadHunter vacancies based on job interests and LMS transcript.
+        Recommend HeadHunter vacancies based only on the student's search query.
 
         POST /api/v1/ai/job-recommendations/
         {

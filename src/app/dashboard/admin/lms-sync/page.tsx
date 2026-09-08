@@ -266,12 +266,9 @@ export default function AdminLmsSyncPage() {
             </p>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
-            <p className="text-white/50 text-sm">{t("admin.lmsSync.transcriptsSummary")}</p>
+            <p className="text-white/50 text-sm">{t("admin.lmsSync.duration")}</p>
             <p className="text-xl font-bold mt-2">
-              +{latest.transcripts_created} / ~{latest.transcripts_updated}
-            </p>
-            <p className="text-white/40 text-sm mt-2">
-              {t("admin.lmsSync.duration")}: {formatDuration(latest.duration_seconds)}
+              {formatDuration(latest.duration_seconds)}
             </p>
           </div>
         </div>
@@ -310,15 +307,14 @@ export default function AdminLmsSyncPage() {
                 <th className="p-5">{t("admin.lmsSync.status")}</th>
                 <th className="p-5">{t("admin.lmsSync.studentsCreated")}</th>
                 <th className="p-5">{t("admin.lmsSync.studentsUpdated")}</th>
-                <th className="p-5">{t("admin.lmsSync.transcriptsCreated")}</th>
-                <th className="p-5">{t("admin.lmsSync.transcriptsUpdated")}</th>
+                <th className="p-5">{t("admin.lmsSync.studentsSkipped")}</th>
                 <th className="p-5">{t("admin.lmsSync.error")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10">
               {logs.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="p-10 text-center text-white/40">
+                  <td colSpan={8} className="p-10 text-center text-white/40">
                     {t("admin.lmsSync.noLogs")}
                   </td>
                 </tr>
@@ -334,8 +330,7 @@ export default function AdminLmsSyncPage() {
                       </td>
                       <td className="p-5">{log.students_created}</td>
                       <td className="p-5">{log.students_updated}</td>
-                      <td className="p-5">{log.transcripts_created}</td>
-                      <td className="p-5">{log.transcripts_updated}</td>
+                      <td className="p-5">{log.students_skipped}</td>
                       <td className="p-5">
                         {log.error_message ? (
                           <button

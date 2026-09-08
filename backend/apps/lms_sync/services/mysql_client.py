@@ -6,8 +6,6 @@ from django.conf import settings
 from pymysql.cursors import DictCursor
 from pymysql.err import OperationalError
 
-from .ssh_tunnel import lms_ssh_tunnel
-
 logger = logging.getLogger(__name__)
 
 
@@ -22,49 +20,60 @@ def configure_mysql_session(connection):
 @contextmanager
 def lms_mysql_connection():
     """
-    Open SSH tunnel, connect to LMS MySQL, yield connection.
-    Tunnel and connection are closed on exit.
+    Connect to LMS MySQL on a local forwarded port.
+
+    Open the SSH tunnel manually first, e.g.:
+      ssh -L 6080:localhost:6080 user@lms-host
+    Then run:
+      python manage.py sync_lms_daily --students-only
     """
-    with lms_ssh_tunnel() as local_port:
-        logger.info(
-            "Connecting to LMS MySQL %s via localhost:%s",
-            settings.LMS_MYSQL_DB,
-            local_port,
+    host = settings.LMS_MYSQL_HOST
+    port = settings.LMS_MYSQL_PORT
+
+    if not settings.LMS_MYSQL_DB or not settings.LMS_MYSQL_USER:
+        raise RuntimeError(
+            "LMS MySQL is not configured. Set LMS_MYSQL_DB and LMS_MYSQL_USER in .env"
         )
-        try:
-            connection = pymysql.connect(
-                host="127.0.0.1",
-                port=local_port,
-                user=settings.LMS_MYSQL_USER,
-                password=settings.LMS_MYSQL_PASSWORD,
-                database=settings.LMS_MYSQL_DB,
-                charset="utf8mb4",
-                cursorclass=DictCursor,
-                connect_timeout=settings.LMS_MYSQL_CONNECT_TIMEOUT,
-                read_timeout=settings.LMS_MYSQL_READ_TIMEOUT,
-                write_timeout=settings.LMS_MYSQL_READ_TIMEOUT,
-                autocommit=True,
-            )
-        except OperationalError as exc:
-            remote = f"{settings.LMS_MYSQL_REMOTE_HOST}:{settings.LMS_MYSQL_REMOTE_PORT}"
-            raise RuntimeError(
-                f"Cannot reach LMS MySQL at {remote} through SSH tunnel. "
-                f"On Platonus servers MySQL is often on localhost:6080 "
-                f"(ssh -L 6080:localhost:6080 user@host). Original error: {exc}"
-            ) from exc
-        try:
-            configure_mysql_session(connection)
-            yield connection
-        except OperationalError as exc:
-            remote = f"{settings.LMS_MYSQL_REMOTE_HOST}:{settings.LMS_MYSQL_REMOTE_PORT}"
-            raise RuntimeError(
-                f"Cannot reach LMS MySQL at {remote} through SSH tunnel. "
-                f"On Platonus servers MySQL is often on localhost:6080 "
-                f"(ssh -L 6080:localhost:6080 user@host). Original error: {exc}"
-            ) from exc
-        finally:
-            logger.info("Closing LMS MySQL connection")
-            connection.close()
+
+    logger.info(
+        "Connecting to LMS MySQL %s at %s:%s (manual tunnel must already be open)",
+        settings.LMS_MYSQL_DB,
+        host,
+        port,
+    )
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=port,
+            user=settings.LMS_MYSQL_USER,
+            password=settings.LMS_MYSQL_PASSWORD,
+            database=settings.LMS_MYSQL_DB,
+            charset="utf8mb4",
+            cursorclass=DictCursor,
+            connect_timeout=settings.LMS_MYSQL_CONNECT_TIMEOUT,
+            read_timeout=settings.LMS_MYSQL_READ_TIMEOUT,
+            write_timeout=settings.LMS_MYSQL_READ_TIMEOUT,
+            autocommit=True,
+        )
+    except OperationalError as exc:
+        raise RuntimeError(
+            f"Cannot reach LMS MySQL at {host}:{port}. "
+            f"Open the SSH tunnel manually first, for example: "
+            f"ssh -L {port}:localhost:{port} user@lms-host "
+            f"Then rerun the sync command. Original error: {exc}"
+        ) from exc
+
+    try:
+        configure_mysql_session(connection)
+        yield connection
+    except OperationalError as exc:
+        raise RuntimeError(
+            f"LMS MySQL connection failed at {host}:{port}. "
+            f"Check that the manual SSH tunnel is still open. Original error: {exc}"
+        ) from exc
+    finally:
+        logger.info("Closing LMS MySQL connection")
+        connection.close()
 
 
 def fetch_rows(connection, sql, params=None, *, retry=True):

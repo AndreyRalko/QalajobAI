@@ -192,17 +192,18 @@
   6. LMS SYNC (ОПЦИОНАЛЬНО)
 ================================================================================
 
-  Синхронизация студентов и транскриптов из MySQL вуза через SSH.
+  Синхронизация логинов/паролей студентов из MySQL вуза.
+  Код туннель сам не открывает — сначала SSH вручную, потом команда.
 
-  Ручной запуск:
+  1) Открыть туннель (оставить окно открытым):
+    ssh -L 6080:localhost:6080 admin_kgu@192.168.10.2
+
+  2) Обновить логины и пароли:
     cd backend
     .\venv\Scripts\Activate.ps1
     python manage.py sync_lms_daily
 
-  Только транскрипты:
-    python manage.py sync_lms_daily --transcripts-only
-
-  Автозапуск по расписанию (нужны Redis + Celery):
+  Автозапуск по расписанию (нужны Redis + Celery, и туннель уже открыт):
 
     Терминал 4 — Redis:
       redis-server
@@ -213,9 +214,6 @@
       celery -A config worker -B -l info
 
   Расписание в UI: /dashboard/admin/lms-sync
-
-  SSH-туннель к MySQL вуза (при отладке):
-    ssh -L 6080:localhost:6080 admin_kgu@192.168.10.2
 
 
 ================================================================================
@@ -283,6 +281,6 @@
   Настройки Django:
     config.settings.dev   — локальная разработка (SQLite)
     config.settings.server — VPS (см. DEPLOY.md)
-    config.settings.prod  — production (Postgres + HTTPS)
+    config.settings.prod  — production (SQLite + Waitress, без Docker)
 
 ================================================================================

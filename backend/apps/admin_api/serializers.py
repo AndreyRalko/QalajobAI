@@ -107,8 +107,6 @@ class LmsSyncLogSerializer(serializers.ModelSerializer):
             "students_created",
             "students_updated",
             "students_skipped",
-            "transcripts_created",
-            "transcripts_updated",
             "error_message",
         ]
 

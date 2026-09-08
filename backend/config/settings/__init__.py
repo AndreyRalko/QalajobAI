@@ -1,11 +1,9 @@
-import os
+"""
+Use an explicit settings module:
 
-env = os.environ.get("DJANGO_SETTINGS_MODULE", "config.settings.dev")
+  DJANGO_SETTINGS_MODULE=config.settings.dev
+  DJANGO_SETTINGS_MODULE=config.settings.server
+  DJANGO_SETTINGS_MODULE=config.settings.prod
 
-if env == "config.settings.prod":
-    from .prod import *
-elif env == "config.settings.server":
-    from .server import *
-else:
-    from .dev import *
-
+Do not rely on this package as the settings module itself.
+"""

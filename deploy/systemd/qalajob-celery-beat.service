@@ -1,0 +1,20 @@
+[Unit]
+Description=QalaJob AI Celery beat
+After=network.target qalajob-celery-worker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/QalajobAI/backend
+Environment=DJANGO_SETTINGS_MODULE=config.settings.prod
+EnvironmentFile=/opt/QalajobAI/backend/.env
+ExecStart=/opt/QalajobAI/backend/venv/bin/celery -A config beat -l info
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

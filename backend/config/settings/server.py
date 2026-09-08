@@ -1,12 +1,18 @@
 """
 QalaJob AI — VPS / bare-metal server settings
-HTTP on Waitress (port 8088). SSL redirect is off unless USE_HTTPS=true.
-SQLite by default; set DB_ENGINE=postgresql for Postgres.
+HTTP on Waitress (port 8088) with SQLite. SSL off unless USE_HTTPS=true.
+No Docker / no PostgreSQL required.
 """
 
 from .base import *  # noqa: F401,F403
 
 DEBUG = env.bool("DEBUG", default=False)  # noqa: F405
+
+if not DEBUG and SECRET_KEY == "dev-secret-key-change-in-production":  # noqa: F405
+    raise RuntimeError(
+        "Refusing to start with the default SECRET_KEY. "
+        "Set a strong SECRET_KEY in backend/.env"
+    )
 
 # Do not force HTTPS when exposing Waitress on :8088 behind no reverse proxy
 USE_HTTPS = env.bool("USE_HTTPS", default=False)  # noqa: F405
@@ -17,6 +23,8 @@ SECURE_HSTS_SECONDS = 31536000 if USE_HTTPS else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = USE_HTTPS
 SECURE_HSTS_PRELOAD = USE_HTTPS
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https") if USE_HTTPS else None
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
 
 CSRF_TRUSTED_ORIGINS = [
     o.strip()
@@ -60,3 +68,5 @@ else:
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         }
     }
+
+ENABLE_API_DOCS = env.bool("ENABLE_API_DOCS", default=DEBUG)  # noqa: F405

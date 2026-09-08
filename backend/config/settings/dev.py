@@ -28,3 +28,6 @@ DATABASES = {
 
 # Shorter token lifetime in dev for testing refresh
 SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = __import__('datetime').timedelta(minutes=60)  # noqa: F405
+
+# OpenAPI docs available in development
+ENABLE_API_DOCS = True

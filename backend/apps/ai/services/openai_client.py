@@ -219,20 +219,18 @@ Provide matching analysis as JSON:
 }}"""
 
 JOB_RECOMMENDATIONS_PROMPT = """You are an AI career advisor for students in Kazakhstan.
-Rank the best HeadHunter job vacancies for a candidate using their job interests and academic transcript.
+Rank the best HeadHunter job vacancies for a candidate using ONLY the student's own search query / job interests.
+Do not invent education, GPA, courses, or other personal academic data.
 
 What the student is looking for:
 {job_interests}
-
-Academic transcript:
-{transcript_text}
 
 Available vacancies from HeadHunter (JSON array):
 {vacancies_json}
 
 Instructions:
-- Match vacancies to the student's stated interests AND their education from the transcript.
-- Prefer roles aligned with completed courses and the student's preferences.
+- Match vacancies only to the student's stated search query and preferences.
+- Prefer roles aligned with the keywords and conditions the student wrote.
 - Return up to {limit} best matches sorted by match_score descending.
 - Use only vacancy_id values from the provided list (exact string ids).
 - Write explanation in {language_name}.
@@ -251,13 +249,11 @@ Return JSON:
 }}"""
 
 HH_SEARCH_QUERY_PROMPT = """You are an AI career assistant for students in Kazakhstan.
-Build a concise HeadHunter (hh.kz) vacancy search query from the student's interests and academic transcript.
+Build a concise HeadHunter (hh.kz) vacancy search query from ONLY the student's own job interests / search request.
+Do not invent education, GPA, courses, or other personal academic data.
 
 Student job interests:
 {job_interests}
-
-Academic transcript:
-{transcript_text}
 
 HeadHunter area ids (use when city is clear):
 - 40 = all Kazakhstan
@@ -267,7 +263,7 @@ HeadHunter area ids (use when city is clear):
 
 Rules:
 - "text" must be a short search query (2-6 meaningful words) suitable for hh.kz search.
-- Combine the student's interests with relevant education from the transcript.
+- Use only information from the student's interests text.
 - Prefer Russian or Kazakh keywords commonly used in vacancy titles in Kazakhstan.
 - Do not include words like "ищу", "работу", "вакансию".
 - Write reasoning in {language_name}.
@@ -474,14 +470,12 @@ def recommend_jobs(
     *,
     limit: int = 10,
     language: str = "ru",
-    transcript_text: str = "",
 ) -> dict:
     client = get_client()
     language_name = resolve_language_name(language)
 
     prompt = JOB_RECOMMENDATIONS_PROMPT.format(
         job_interests=wrap_untrusted(candidate_data.get("job_interests", ""), label="job_interests"),
-        transcript_text=wrap_untrusted(transcript_text or "No transcript data available.", label="transcript"),
         vacancies_json=wrap_untrusted(json.dumps(vacancies, ensure_ascii=False), label="vacancies_json"),
         limit=limit,
         language_name=language_name,
@@ -499,14 +493,12 @@ def build_hh_search_query(
     candidate_data: dict,
     *,
     language: str = "ru",
-    transcript_text: str = "",
 ) -> dict:
     client = get_client()
     language_name = resolve_language_name(language)
 
     prompt = HH_SEARCH_QUERY_PROMPT.format(
         job_interests=wrap_untrusted(candidate_data.get("job_interests", ""), label="job_interests"),
-        transcript_text=wrap_untrusted(transcript_text or "No transcript data available.", label="transcript"),
         language_name=language_name,
     )
     return client._call_json(

@@ -18,8 +18,7 @@ class LmsSyncLogAdmin(admin.ModelAdmin):
         "status",
         "students_created",
         "students_updated",
-        "transcripts_created",
-        "transcripts_updated",
+        "students_skipped",
     )
     readonly_fields = (
         "started_at",
@@ -28,7 +27,5 @@ class LmsSyncLogAdmin(admin.ModelAdmin):
         "students_created",
         "students_updated",
         "students_skipped",
-        "transcripts_created",
-        "transcripts_updated",
         "error_message",
     )

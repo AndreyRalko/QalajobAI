@@ -150,11 +150,12 @@
   ЧАСТЬ 5. ОПЦИОНАЛЬНО
 ================================================================================
 
-LMS sync вручную:
+LMS sync (туннель открыть вручную, затем команда):
+  ssh -L 6080:localhost:6080 admin_kgu@192.168.10.2
   cd backend
   python manage.py sync_lms_daily
 
-LMS sync по расписанию (нужен Redis):
+LMS sync по расписанию (нужен Redis + уже открытый туннель):
   redis-server
   celery -A config worker -B -l info
 

@@ -5,14 +5,12 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.transcripts.seed_data import load_lms_transcript
 from apps.users.services.preset_users import load_preset_users
 
 
 class JobRecommendationsTests(TestCase):
     def setUp(self):
         load_preset_users()
-        load_lms_transcript()
         self.client = APIClient()
         login = self.client.post(
             reverse("users:login"),

@@ -57,8 +57,6 @@ class LmsSyncLog(models.Model):
     students_created = models.PositiveIntegerField(default=0)
     students_updated = models.PositiveIntegerField(default=0)
     students_skipped = models.PositiveIntegerField(default=0)
-    transcripts_created = models.PositiveIntegerField(default=0)
-    transcripts_updated = models.PositiveIntegerField(default=0)
     error_message = models.TextField(blank=True)
 
     class Meta:

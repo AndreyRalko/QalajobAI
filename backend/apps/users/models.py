@@ -49,7 +49,7 @@ class UserProfile(models.Model):
         null=True,
         unique=True,
         db_index=True,
-        help_text="LMS StudentID used to load academic transcript",
+        help_text="LMS StudentID from Platonus",
     )
 
     created_at = models.DateTimeField(

@@ -84,8 +84,6 @@ export interface LmsSyncLog {
   students_created: number;
   students_updated: number;
   students_skipped: number;
-  transcripts_created: number;
-  transcripts_updated: number;
   error_message: string;
 }
 
