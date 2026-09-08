@@ -33,6 +33,21 @@ if errorlevel 1 (
 )
 
 echo.
+echo Preparing standalone (static + public)...
+if not exist ".next\standalone\server.js" (
+  echo [ERROR] .next\standalone\server.js not found after build
+  pause
+  exit /b 1
+)
+if not exist ".next\standalone\.next" md ".next\standalone\.next"
+if exist ".next\static" (
+  robocopy ".next\static" ".next\standalone\.next\static" /E /NFL /NDL /NJH /NJS /nc /ns /np >nul
+)
+if exist "public" (
+  robocopy "public" ".next\standalone\public" /E /NFL /NDL /NJH /NJS /nc /ns /np >nul
+)
+
+echo.
 echo Backend: collectstatic...
 cd backend
 if exist "venv\Scripts\activate.bat" (

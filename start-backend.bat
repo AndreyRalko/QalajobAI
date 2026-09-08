@@ -1,21 +1,18 @@
 @echo off
+chcp 65001 >nul
 cd /d "%~dp0backend"
+title QalaJob Backend :8088
 
-if exist "venv\Scripts\activate.bat" goto activate_venv
-if exist ".venv\Scripts\activate.bat" goto activate_dotvenv
-echo [ERROR] venv not found. Create it first: python -m venv venv
-pause
-exit /b 1
+if exist "venv\Scripts\activate.bat" (
+  call "venv\Scripts\activate.bat"
+) else if exist ".venv\Scripts\activate.bat" (
+  call ".venv\Scripts\activate.bat"
+) else (
+  echo [ERROR] venv не найден. Создайте: python -m venv venv
+  pause
+  exit /b 1
+)
 
-:activate_venv
-call "venv\Scripts\activate.bat"
-goto after_activate
-
-:activate_dotvenv
-call ".venv\Scripts\activate.bat"
-goto after_activate
-
-:after_activate
 if not exist "logs" md logs
 if not exist "staticfiles" md staticfiles
 
