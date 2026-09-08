@@ -1,0 +1,33 @@
+{% extends "web/admin/base_admin.html" %}
+{% load web_i18n %}
+{% block title %}{% t "admin.menu.vacancies" %} — Admin{% endblock %}
+{% block page_heading %}{% t "admin.menu.vacancies" %}{% endblock %}
+{% block content %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>{% t "common.name" %}</th>
+      <th>{% t "admin.menu.companies" %}</th>
+      <th>{% t "common.status" %}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for v in page %}
+    <tr>
+      <td>{{ v.title }}</td>
+      <td>{{ v.company_name|default:"—" }}</td>
+      <td>{{ v.status }}</td>
+      <td>
+        <form method="post">{% csrf_token %}
+          <input type="hidden" name="vacancy_id" value="{{ v.id }}">
+          <button class="btn btn-sm btn-danger" onclick="return confirm('{% t 'web.deleteVacancyConfirm' %}')">{% t "common.delete" %}</button>
+        </form>
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="4">{% t "web.noVacancies" %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

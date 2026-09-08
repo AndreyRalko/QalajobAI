@@ -1,0 +1,13 @@
+{% extends "web/admin/base_admin.html" %}
+{% load web_i18n %}
+{% block title %}{% t "admin.dashboard.title" %} — QalaJob{% endblock %}
+{% block page_heading %}{% t "admin.dashboard.overview" %}{% endblock %}
+{% block content %}
+<div class="stat-grid">
+  <article class="stat"><span>{% t "admin.dashboard.totalUsers" %}</span><strong>{{ users_count }}</strong></article>
+  <article class="stat"><span>{% t "admin.dashboard.students" %}</span><strong>{{ students_count }}</strong></article>
+  <article class="stat"><span>{% t "admin.dashboard.employers" %}</span><strong>{{ employers_count }}</strong></article>
+  <article class="stat"><span>{% t "admin.dashboard.vacancies" %}</span><strong>{{ vacancies_count }}</strong></article>
+  <article class="stat"><span>{% t "web.aiLogs" %}</span><strong>{{ ai_logs_count }}</strong></article>
+</div>
+{% endblock %}

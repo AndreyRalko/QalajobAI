@@ -1,0 +1,10 @@
+{% extends "web/public/base_public.html" %}
+{% load web_i18n %}
+{% block title %}{% t "contact.title" %} — QalaJob AI{% endblock %}
+{% block content %}
+<section class="section narrow">
+  <p class="eyebrow">{% t "navbar.contact" %}</p>
+  <h1>{% t "contact.title" %}</h1>
+  <p class="lead">{% t "web.contactLead" %} <a href="mailto:support@qalajob.ai">support@qalajob.ai</a></p>
+</section>
+{% endblock %}

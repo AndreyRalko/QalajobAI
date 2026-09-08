@@ -1,0 +1,74 @@
+{% extends "web/student/base_student.html" %}
+{% load static web_i18n %}
+{% block title %}AI — QalaJob{% endblock %}
+{% block page_heading %}{% t "web.workspace" %}{% endblock %}
+{% block content %}
+<div class="mode-tabs">
+  {% for slug, label in modes %}
+  <a class="chip {% if mode_slug == slug %}active{% endif %}" href="{% url 'web:student-ai' mode=slug %}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<div class="workspace" id="workspace" data-mode="{{ mode_api }}" data-mode-slug="{{ mode_slug }}">
+  <section class="chat-pane">
+    <div class="vacancy-box">
+      <div class="vacancy-active-label muted">{% t "web.activeVacancy" %}</div>
+      <label class="vacancy-pick-label">
+        {% t "web.pickSavedVacancy" %}
+        <select id="savedVacancySelect">
+          <option value="">{% t "web.pickSavedPlaceholder" %}</option>
+        </select>
+      </label>
+      <p id="savedVacancyEmpty" class="muted vacancy-empty-hint" hidden>
+        {% t "web.noSaved" %}
+        — <a href="{% url 'web:student-jobs' %}">{% t "web.goToJobs" %}</a>
+      </p>
+      <input id="jobTitle" placeholder="{% t 'web.jobTitlePh' %}">
+      <input id="company" placeholder="{% t 'web.companyPh' %}">
+      <textarea id="jobDescription" rows="3" placeholder="{% t 'web.jobDescPh' %}"></textarea>
+      <div class="job-actions vacancy-actions">
+        <button type="button" class="btn btn-sm btn-ghost" id="clearVacancyBtn">{% t "web.clearVacancy" %}</button>
+        <button type="button" class="btn btn-sm" id="adaptBtn">{% t "web.adaptResume" %}</button>
+        <button type="button" class="btn btn-sm" id="coverBtn">{% t "web.genCover" %}</button>
+        <button type="button" class="btn btn-sm" id="interviewBtn">{% t "web.genInterview" %}</button>
+      </div>
+      <p class="muted" style="margin:0;font-size:.85rem">{% t "web.selectVacancyHint" %}</p>
+    </div>
+    <div id="chatMessages" class="chat-messages"></div>
+    <div class="chat-compose">
+      <textarea id="question" rows="2" placeholder="{% t 'aiPage.placeholder' %}"></textarea>
+      <button type="button" class="btn" id="sendBtn">{% t "aiPage.send" %}</button>
+    </div>
+  </section>
+  <section class="draft-pane">
+    <div class="draft-toolbar">
+      <button type="button" class="btn btn-ghost" id="enhanceBtn">{% t "aiPage.enhance" %}</button>
+      <button type="button" class="btn btn-ghost" id="saveBtn">{% t "aiPage.saveDraft" %}</button>
+      <button type="button" class="btn btn-ghost" id="pdfBtn">{% t "aiPage.exportPdf" %}</button>
+      <span id="saveStatus" class="muted"></span>
+    </div>
+    <textarea id="draft" class="draft-area" placeholder="{% t 'aiPage.draftPlaceholder' %}"></textarea>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  window.QJ = window.QJ || {};
+  window.QJ.i18n = Object.assign(window.QJ.i18n || {}, {
+    adaptResume: "{% t 'web.adaptResume' %}",
+    genCover: "{% t 'web.genCover' %}",
+    genInterview: "{% t 'web.genInterview' %}",
+    saving: "{% t 'web.saving' %}",
+    saved: "{% t 'web.saved' %}",
+    enhancing: "{% t 'web.enhancing' %}",
+    enhanced: "{% t 'web.enhanced' %}",
+    errorPrefix: "{% t 'web.errorPrefix' %}",
+    pickSavedPlaceholder: "{% t 'web.pickSavedPlaceholder' %}",
+    selectVacancyHint: "{% t 'web.selectVacancyHint' %}",
+    noSaved: "{% t 'web.noSaved' %}"
+  });
+  window.QJ.jobsUrl = "{% url 'web:student-jobs' %}";
+</script>
+<script src="{% static 'web/js/vacancy-context.js' %}"></script>
+<script src="{% static 'web/js/workspace.js' %}"></script>
+{% endblock %}

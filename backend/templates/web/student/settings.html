@@ -1,0 +1,16 @@
+{% extends "web/student/base_student.html" %}
+{% load web_i18n %}
+{% block title %}{% t "web.settings" %} — QalaJob{% endblock %}
+{% block page_heading %}{% t "web.settings" %}{% endblock %}
+{% block content %}
+<section class="card narrow-card">
+  <h2>{% t "web.changePassword" %}</h2>
+  <form method="post" action="{% url 'web:change-password' %}" class="stack">
+    {% csrf_token %}
+    <label>{% t "auth.currentPassword" %}<input type="password" name="current_password" required></label>
+    <label>{% t "auth.newPassword" %}<input type="password" name="new_password" required></label>
+    <label>{% t "auth.confirmPassword" %}<input type="password" name="new_password_confirm" required></label>
+    <button class="btn" type="submit">{% t "common.save" %}</button>
+  </form>
+</section>
+{% endblock %}

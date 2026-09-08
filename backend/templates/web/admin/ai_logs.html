@@ -1,0 +1,39 @@
+{% extends "web/admin/base_admin.html" %}
+{% load web_i18n %}
+{% block title %}{% t "web.aiLogs" %} — Admin{% endblock %}
+{% block page_heading %}{% t "web.aiLogs" %}{% endblock %}
+{% block content %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>{% t "common.date" %}</th>
+      <th>{% t "common.name" %}</th>
+      <th>Feature</th>
+      <th>{% t "common.status" %}</th>
+      <th>Provider</th>
+      <th>ms</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for log in page %}
+    <tr>
+      <td>{{ log.created_at }}</td>
+      <td>{{ log.user_login|default:log.user.username }}</td>
+      <td>{{ log.feature }}</td>
+      <td>{{ log.status }}</td>
+      <td>{{ log.provider|default:"—" }}</td>
+      <td>{{ log.duration_ms }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6">{% t "web.empty" %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if page.has_other_pages %}
+<div class="pager">
+  {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">←</a>{% endif %}
+  <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a href="?page={{ page.next_page_number }}">→</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

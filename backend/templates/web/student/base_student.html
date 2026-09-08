@@ -1,0 +1,33 @@
+{% extends "web/base.html" %}
+{% load web_i18n %}
+{% block body_class %}app-shell{% endblock %}
+{% block body %}
+<aside class="sidebar">
+  <a class="brand" href="{% url 'web:home' %}">QalaJob <span>AI</span></a>
+  <p class="sidebar-user">{{ web_display_name }}</p>
+  {% include "web/partials/lang_switch.html" %}
+  <nav class="sidebar-nav">
+    {% with url_name=request.resolver_match.url_name %}
+    {% with mode=request.resolver_match.kwargs.mode %}
+    <a href="{% url 'web:student-ai' mode='resume' %}" class="{% if url_name == 'student-ai-root' or url_name == 'student-ai' and mode == 'resume' %}active{% endif %}">{% t "aiPage.modeResume" %}</a>
+    <a href="{% url 'web:student-ai' mode='cover-letter' %}" class="{% if url_name == 'student-ai' and mode == 'cover-letter' %}active{% endif %}">{% t "aiPage.modeCover" %}</a>
+    <a href="{% url 'web:student-ai' mode='interview' %}" class="{% if url_name == 'student-ai' and mode == 'interview' %}active{% endif %}">{% t "aiPage.modeInterview" %}</a>
+    <a href="{% url 'web:student-ai' mode='mock-interview' %}" class="{% if url_name == 'student-ai' and mode == 'mock-interview' %}active{% endif %}">{% t "web.modeMock" %}</a>
+    <a href="{% url 'web:student-jobs' %}" class="{% if url_name == 'student-jobs' %}active{% endif %}">{% t "studentJobs.title" %}</a>
+    <a href="{% url 'web:student-settings' %}" class="{% if url_name == 'student-settings' %}active{% endif %}">{% t "web.settings" %}</a>
+    {% endwith %}
+    {% endwith %}
+  </nav>
+  <div class="sidebar-foot">
+    <a href="{% url 'web:logout' %}">{% t "navbar.logout" %}</a>
+  </div>
+</aside>
+<div class="app-main">
+  <header class="app-top">
+    <h1>{% block page_heading %}{% t "web.cabinet" %}{% endblock %}</h1>
+  </header>
+  <div class="app-content">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

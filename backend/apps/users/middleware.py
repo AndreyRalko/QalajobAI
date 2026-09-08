@@ -7,8 +7,8 @@ import json
 import logging
 import time
 
-from django.http import JsonResponse
-from django.utils.deprecation import MiddlewareMixin
+from django.contrib.auth import logout
+from django.http import HttpResponseRedirect, JsonResponse
 
 logger = logging.getLogger('apps')
 security_logger = logging.getLogger('security')
@@ -74,10 +74,13 @@ class BannedUserMiddleware:
                     security_logger.warning(
                         f"BANNED_USER_ACCESS user={user.id} path={request.path} ip={self._get_ip(request)}"
                     )
-                    return JsonResponse(
-                        {'message': 'Your account has been banned.', 'code': 'ACCOUNT_BANNED'},
-                        status=403,
-                    )
+                    if request.path.startswith('/api/'):
+                        return JsonResponse(
+                            {'message': 'Your account has been banned.', 'code': 'ACCOUNT_BANNED'},
+                            status=403,
+                        )
+                    logout(request)
+                    return HttpResponseRedirect('/login/?banned=1')
             except Exception:
                 pass
 

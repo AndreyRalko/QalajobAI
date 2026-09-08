@@ -1,0 +1,46 @@
+{% load static web_i18n %}
+<!DOCTYPE html>
+<html lang="{{ html_lang|default:'kk' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}QalaJob AI{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'web/css/app.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  {% if messages %}
+  <div class="flash-stack">
+    {% for message in messages %}
+    <div class="flash flash-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% block body %}{% endblock %}
+  <script>
+    window.QJ = window.QJ || {};
+    window.QJ.apiBase = "{{ api_base }}";
+    window.QJ.csrfToken = "{{ csrf_token }}";
+    window.QJ.locale = "{{ locale|default:'kk' }}";
+    window.QJ.i18n = {
+      send: "{% t 'aiPage.send' %}",
+      saving: "{% t 'web.saving' %}",
+      saved: "{% t 'web.saved' %}",
+      enhancing: "{% t 'web.enhancing' %}",
+      enhanced: "{% t 'web.enhanced' %}",
+      errorPrefix: "{% t 'web.errorPrefix' %}",
+      lookingJobs: "{% t 'web.lookingJobs' %}",
+      found: "{% t 'web.found' %}",
+      tryOtherQuery: "{% t 'web.tryOtherQuery' %}",
+      openOnHh: "{% t 'web.openOnHh' %}",
+      interestsRequired: "{% t 'studentJobs.interestsRequired' %}"
+    };
+  </script>
+  <script src="{% static 'web/js/api.js' %}"></script>
+  <script src="{% static 'web/js/motion.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

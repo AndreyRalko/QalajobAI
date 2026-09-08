@@ -39,6 +39,8 @@ urlpatterns = [
             ]
         ),
     ),
+    # Django monolith UI (replaces Next.js)
+    path("", include("apps.web.urls")),
 ]
 
 if getattr(settings, "ENABLE_API_DOCS", settings.DEBUG):

@@ -1,0 +1,10 @@
+{% extends "web/public/base_public.html" %}
+{% load web_i18n %}
+{% block title %}{{ title }} — QalaJob AI{% endblock %}
+{% block content %}
+<section class="section narrow">
+  <h1>{{ title }}</h1>
+  <p class="lead">{{ message }}</p>
+  <p><a class="btn" href="{% url 'web:home' %}">{% t "web.backHome" %}</a></p>
+</section>
+{% endblock %}

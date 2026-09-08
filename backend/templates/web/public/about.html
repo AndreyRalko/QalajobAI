@@ -1,0 +1,11 @@
+{% extends "web/public/base_public.html" %}
+{% load web_i18n %}
+{% block title %}{% t "about.title" %} — QalaJob AI{% endblock %}
+{% block content %}
+<section class="section narrow">
+  <p class="eyebrow">{% t "navbar.about" %}</p>
+  <h1>{% t "about.title" %}</h1>
+  <p class="lead">{% t "about.subtitle" %}</p>
+  <p class="lead">{% t "about.missionDesc" %}</p>
+</section>
+{% endblock %}

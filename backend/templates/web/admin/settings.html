@@ -1,0 +1,29 @@
+{% extends "web/admin/base_admin.html" %}
+{% load web_i18n %}
+{% block title %}{% t "admin.menu.settings" %} — Admin{% endblock %}
+{% block page_heading %}{% t "admin.menu.settings" %}{% endblock %}
+{% block content %}
+{% if error %}<div class="alert">{{ error }}</div>{% endif %}
+{% if success %}<div class="alert ok">{{ success }}</div>{% endif %}
+<section class="card narrow-card">
+  <h2>{% t "web.platform" %}</h2>
+  <form method="post" class="stack">
+    {% csrf_token %}
+    <label><input type="checkbox" name="maintenance_mode" {% if settings_obj.maintenance_mode %}checked{% endif %}> {% t "web.maintenance" %}</label>
+    <label>{% t "web.supportEmail" %}
+      <input type="email" name="support_email" value="{{ settings_obj.support_email|default:'support@qalajob.ai' }}">
+    </label>
+    <button class="btn" type="submit">{% t "common.save" %}</button>
+  </form>
+</section>
+<section class="card narrow-card">
+  <h2>{% t "web.changePassword" %}</h2>
+  <form method="post" action="{% url 'web:change-password' %}" class="stack">
+    {% csrf_token %}
+    <label>{% t "auth.currentPassword" %}<input type="password" name="current_password" required></label>
+    <label>{% t "auth.newPassword" %}<input type="password" name="new_password" required></label>
+    <label>{% t "auth.confirmPassword" %}<input type="password" name="new_password_confirm" required></label>
+    <button class="btn" type="submit">{% t "web.updatePassword" %}</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "web/student/base_student.html" %}
+{% load static web_i18n %}
+{% block title %}{% t "studentJobs.title" %} — QalaJob{% endblock %}
+{% block page_heading %}{% t "studentJobs.title" %}{% endblock %}
+{% block content %}
+<p class="muted" style="margin-top:0">{% t "studentJobs.subtitle" %}</p>
+<p class="muted">{% t "web.selectVacancyHint" %}</p>
+
+<section class="card" style="margin-bottom:1.2rem">
+  <h2 style="margin-top:0">{% t "web.savedSection" %}</h2>
+  <div id="savedList" class="jobs-list"></div>
+  <p id="savedEmpty" class="muted">{% t "web.noSaved" %}</p>
+</section>
+
+<form id="jobsForm" class="jobs-form">
+  <label>
+    {% t "studentJobs.interestsLabel" %}
+    <input id="interests" name="interests" placeholder="{% t 'studentJobs.interestsPlaceholder' %}" required>
+  </label>
+  <button class="btn" type="submit">{% t "studentJobs.search" %}</button>
+</form>
+<div id="jobsStatus" class="muted"></div>
+<div id="jobsList" class="jobs-list"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  window.QJ = window.QJ || {};
+  window.QJ.i18n = Object.assign(window.QJ.i18n || {}, {
+    saveVacancy: "{% t 'web.saveVacancy' %}",
+    savedVacancy: "{% t 'web.savedVacancy' %}",
+    unsaveVacancy: "{% t 'web.unsaveVacancy' %}",
+    prepareWithAi: "{% t 'web.prepareWithAi' %}",
+    useForAi: "{% t 'web.useForAi' %}",
+    selectedForAi: "{% t 'web.selectedForAi' %}",
+    noSaved: "{% t 'web.noSaved' %}",
+    openOnHh: "{% t 'web.openOnHh' %}"
+  });
+  window.QJ.workspaceResumeUrl = "{% url 'web:student-ai' mode='resume' %}";
+</script>
+<script src="{% static 'web/js/vacancy-context.js' %}"></script>
+<script src="{% static 'web/js/jobs.js' %}"></script>
+{% endblock %}

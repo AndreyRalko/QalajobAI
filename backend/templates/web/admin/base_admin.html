@@ -1,0 +1,30 @@
+{% extends "web/base.html" %}
+{% load web_i18n %}
+{% block body_class %}app-shell admin-shell{% endblock %}
+{% block body %}
+<aside class="sidebar">
+  <a class="brand" href="{% url 'web:admin-home' %}">QalaJob <span>Admin</span></a>
+  <p class="sidebar-user">{{ web_display_name }}</p>
+  {% include "web/partials/lang_switch.html" %}
+  <nav class="sidebar-nav">
+    <a href="{% url 'web:admin-home' %}">{% t "admin.menu.dashboard" %}</a>
+    <a href="{% url 'web:admin-users' %}">{% t "admin.menu.users" %}</a>
+    <a href="{% url 'web:admin-vacancies' %}">{% t "admin.menu.vacancies" %}</a>
+    <a href="{% url 'web:admin-lms-sync' %}">{% t "admin.menu.lmsSync" %}</a>
+    <a href="{% url 'web:admin-ai-logs' %}">{% t "admin.menu.aiLogs" %}</a>
+    <a href="{% url 'web:admin-settings' %}">{% t "admin.menu.settings" %}</a>
+    <a href="/admin/" target="_blank" rel="noopener">{% t "web.djangoAdmin" %}</a>
+  </nav>
+  <div class="sidebar-foot">
+    <a href="{% url 'web:logout' %}">{% t "navbar.logout" %}</a>
+  </div>
+</aside>
+<div class="app-main">
+  <header class="app-top">
+    <h1>{% block page_heading %}{% t "admin.panel" %}{% endblock %}</h1>
+  </header>
+  <div class="app-content">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

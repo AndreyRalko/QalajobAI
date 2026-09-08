@@ -1,43 +1,33 @@
 # QalaJob AI
 
-Платформа вакансий с AI-функциями: **Next.js** + **Django REST Framework**.
+Платформа карьеры для студентов: **Django monolith** (HTML + REST API).
+
+> Папка `src/` (Next.js) — устаревший фронт, в запуске не используется.
 
 ## Стек
 
-- **Frontend:** Next.js 16, React 19, Tailwind, next-intl
-- **Backend:** Django 5, DRF, JWT, drf-spectacular
-- **БД:** SQLite (локально и Production)
+- **UI:** Django templates + static CSS/JS (`apps.web`)
+- **API:** Django REST Framework (session + JWT) под `/api/v1/`
+- **БД:** SQLite
+- **Сервер:** Waitress `:8088`
 
-## Быстрый запуск (локально)
+## Быстрый запуск
 
-Подробная пошаговая инструкция: **[SETUP.md](./SETUP.md)** (Ollama, гибрид AI, LMS sync).
+Двойной клик **`start.bat`** или:
 
 ```powershell
-# 0 — Ollama + модель (один раз)
-ollama pull qwen2.5:7b-instruct
-
-# Terminal 1 — API
 cd backend
 .\venv\Scripts\Activate.ps1
 python manage.py migrate
-python manage.py runserver
-
-# Terminal 2 — UI
-cd ..
-npm install
-npm run dev
+python manage.py collectstatic --noinput
+python run_waitress.py
 ```
 
-- UI: http://localhost:3000  
-- API health: http://127.0.0.1:8000/api/health/  
-- Swagger: http://127.0.0.1:8000/api/schema/swagger-ui/
+- Сайт: http://localhost:8088  
+- Вход: http://localhost:8088/login/  
+- API health: http://localhost:8088/api/health/  
+- Django Admin: http://localhost:8088/admin/
 
-## Production
+Логин студента: `Иванов_Иван` / `Student123`
 
-См. **[DEPLOY.md](./DEPLOY.md)** — **без Docker**, SQLite + Waitress `:8088` + Next `:3001` + systemd.
-
-Шаблоны env:
-
-- `backend/.env.prod.example`
-- `backend/.env.server.example`
-- `.env.production.example`
+Подробнее: **[SETUP.md](./SETUP.md)**, деплой: **[DEPLOY.md](./DEPLOY.md)**.

@@ -1,0 +1,51 @@
+{% extends "web/admin/base_admin.html" %}
+{% load web_i18n %}
+{% block title %}{% t "admin.users.title" %} — QalaJob{% endblock %}
+{% block page_heading %}{% t "admin.users.title" %}{% endblock %}
+{% block content %}
+<form method="get" class="inline-form">
+  <input name="q" value="{{ q }}" placeholder="{% t 'web.searchUsers' %}">
+  <button class="btn btn-sm" type="submit">{% t "common.search" %}</button>
+</form>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>{% t "auth.login" %}</th>
+      <th>{% t "common.role" %}</th>
+      <th>Student ID</th>
+      <th>{% t "admin.users.banned" %}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in page %}
+    <tr>
+      <td>{{ p.user.username }}</td>
+      <td>{{ p.role }}</td>
+      <td>{{ p.student_id|default:"—" }}</td>
+      <td>{% if p.is_banned %}{% t "web.yes" %}{% else %}{% t "web.no" %}{% endif %}</td>
+      <td class="row-actions">
+        <form method="post">{% csrf_token %}
+          <input type="hidden" name="profile_id" value="{{ p.id }}">
+          {% if p.is_banned %}
+          <button name="action" value="unban" class="btn btn-sm">{% t "web.unban" %}</button>
+          {% else %}
+          <button name="action" value="ban" class="btn btn-sm">{% t "web.ban" %}</button>
+          {% endif %}
+          <button name="action" value="delete" class="btn btn-sm btn-danger" onclick="return confirm('{% t 'web.deleteUserConfirm' %}')">{% t "common.delete" %}</button>
+        </form>
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5">{% t "web.noUsers" %}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if page.has_other_pages %}
+<div class="pager">
+  {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}&q={{ q }}">←</a>{% endif %}
+  <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a href="?page={{ page.next_page_number }}&q={{ q }}">→</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

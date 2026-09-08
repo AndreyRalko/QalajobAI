@@ -1,0 +1,9 @@
+{% load web_i18n %}
+<div class="lang-switch" aria-label="{% t 'footer.language' %}">
+  {% for code in supported_locales %}
+  <a
+    class="lang-btn {% if locale == code %}active{% endif %}"
+    href="{% url 'web:set-language-get' %}?lang={{ code }}&next={{ request.get_full_path|urlencode }}"
+  >{{ code|upper }}</a>
+  {% endfor %}
+</div>

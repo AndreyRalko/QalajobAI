@@ -1,59 +1,52 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
-title QalaJob AI
+title QalaJob AI (Django)
 
 echo ========================================
-echo  QalaJob AI — запуск
-echo  Frontend :3001  ^|  Backend :8088
+echo  QalaJob AI — Django monolith
+echo  http://localhost:8088
 echo ========================================
 echo.
 
-REM --- Проверка сборки ---
-if not exist ".next\standalone\server.js" (
-  echo [ERROR] Нет production-сборки.
-  echo Сначала запустите build.bat, потом снова start.bat
-  echo.
+call :free_port 8088
+
+cd /d "%~dp0backend"
+
+if exist "venv\Scripts\activate.bat" (
+  call "venv\Scripts\activate.bat"
+) else if exist ".venv\Scripts\activate.bat" (
+  call ".venv\Scripts\activate.bat"
+) else (
+  echo [ERROR] venv не найден. Создайте: python -m venv venv
   pause
   exit /b 1
 )
 
-REM --- Static/public для standalone (нужны после каждого build) ---
-if not exist ".next\standalone\.next" md ".next\standalone\.next"
-if exist ".next\static" (
-  robocopy ".next\static" ".next\standalone\.next\static" /E /NFL /NDL /NJH /NJS /nc /ns /np >nul
-)
-if exist "public" (
-  robocopy "public" ".next\standalone\public" /E /NFL /NDL /NJH /NJS /nc /ns /np >nul
-)
+if not exist "logs" md logs
+if not exist "staticfiles" md staticfiles
 
-REM --- Освободить порты, если заняты ---
-call :free_port 8088
-call :free_port 3001
+set DJANGO_SETTINGS_MODULE=config.settings.server
+set WAITRESS_HOST=0.0.0.0
+set WAITRESS_PORT=8088
 
-echo [1/2] Waitress на :8088 ...
-start "QalaJob Backend :8088" /min "%~dp0start-backend.bat"
-timeout /t 2 /nobreak >nul
+echo Collectstatic...
+python manage.py collectstatic --noinput >nul
 
-cd /d "%~dp0"
-set PORT=3001
-set HOSTNAME=0.0.0.0
-
-echo [2/2] Next.js на :3001 ...
+echo Starting Waitress on :8088 ...
 echo.
-echo  Сайт:  http://localhost:3001
-echo  API:   http://localhost:8088/api/health/
+echo  Сайт:   http://localhost:8088
+echo  Вход:   http://localhost:8088/login/
+echo  API:    http://localhost:8088/api/health/
+echo  Admin:  http://localhost:8088/admin/
 echo.
-echo  Закройте это окно или Ctrl+C — остановит фронт и бэкенд.
+echo  Ctrl+C — остановить.
 echo.
 
-start "" "http://localhost:3001"
-call npm run start:prod
+start "" "http://localhost:8088"
+python run_waitress.py
 
 echo.
-echo Останавливаю backend на :8088 ...
-call :free_port 8088
-echo Готово.
 pause
 exit /b 0
 

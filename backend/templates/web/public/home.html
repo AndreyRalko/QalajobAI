@@ -1,0 +1,49 @@
+{% extends "web/public/base_public.html" %}
+{% load web_i18n %}
+{% block title %}QalaJob AI — {% t "hero.title1" %} {% t "hero.title2" %}{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-copy reveal">
+    <p class="eyebrow">{% t "hero.badge" %}</p>
+    <h1>{% t "hero.title1" %}<br>{% t "hero.title2" %}<br><em>{% t "hero.title3" %}</em></h1>
+    <p class="lead">{% t "hero.description" %}</p>
+    <div class="hero-actions">
+      <a class="btn" href="{% url 'web:login' %}">{% t "hero.start" %}</a>
+      <a class="btn btn-ghost" href="#how">{% t "hero.explore" %}</a>
+    </div>
+  </div>
+  <div class="hero-panel reveal from-right delay-1">
+    <div class="panel-card float-y">
+      <span>{% t "hero.card1Label" %}</span>
+      <strong>{% t "hero.card1Value" %}</strong>
+    </div>
+    <div class="panel-card float-y-alt">
+      <span>{% t "hero.card2Label" %}</span>
+      <strong>{% t "hero.card2Value" %}</strong>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="how">
+  <p class="eyebrow reveal">{% t "howSection.badge" %}</p>
+  <h2 class="reveal delay-1">{% t "howSection.title" %}</h2>
+  <div class="steps">
+    <article class="reveal delay-1"><h3>1. {% t "howSection.step1Title" %}</h3><p>{% t "howSection.step1Desc" %}</p></article>
+    <article class="reveal delay-2"><h3>2. {% t "howSection.step2Title" %}</h3><p>{% t "howSection.step2Desc" %}</p></article>
+    <article class="reveal delay-3"><h3>3. {% t "howSection.step3Title" %}</h3><p>{% t "howSection.step3Desc" %}</p></article>
+    <article class="reveal delay-4"><h3>4. {% t "howSection.step4Title" %}</h3><p>{% t "howSection.step4Desc" %}</p></article>
+  </div>
+</section>
+
+<section class="section">
+  <p class="eyebrow reveal">{% t "featuresSection.badge" %}</p>
+  <h2 class="reveal delay-1">{% t "featuresSection.title1" %} {% t "featuresSection.title2" %}</h2>
+  <div class="feature-grid">
+    <article class="reveal delay-1"><h3>{% t "featuresSection.feature1Title" %}</h3><p>{% t "featuresSection.feature1Desc" %}</p></article>
+    <article class="reveal delay-2"><h3>{% t "featuresSection.feature2Title" %}</h3><p>{% t "featuresSection.feature2Desc" %}</p></article>
+    <article class="reveal delay-3"><h3>{% t "featuresSection.feature3Title" %}</h3><p>{% t "featuresSection.feature3Desc" %}</p></article>
+    <article class="reveal delay-4"><h3>{% t "featuresSection.feature4Title" %}</h3><p>{% t "featuresSection.feature4Desc" %}</p></article>
+  </div>
+  <p class="cta-row reveal"><a class="btn" href="{% url 'web:login' %}">{% t "aiSection.button1" %}</a></p>
+</section>
+{% endblock %}

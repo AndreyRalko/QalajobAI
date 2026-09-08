@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'apps.audit',
     'apps.transcripts',
     'apps.lms_sync',
+    'apps.web',
 ]
 
 # ── Middleware ───────────────────────────────────────────────────────
@@ -92,6 +93,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.web.context_processors.web_context',
             ],
         },
     },
@@ -153,11 +155,17 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATIC_ROOT.mkdir(parents=True, exist_ok=True)
+STATICFILES_DIRS = [BASE_DIR / 'static']
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Manifest hashes break rapid CSS/JS iteration; compressed is enough behind WhiteNoise.
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/app/student/ai/resume/'
+LOGOUT_REDIRECT_URL = '/login/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -165,6 +173,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
@@ -252,7 +261,7 @@ EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='QalaJob AI <noreply@qalajob.kz>')
 
-FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:8088')
 
 # ── Payment Providers ──────────────────────────────────────────────
 
@@ -409,7 +418,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # ── Frontend URL ────────────────────────────────────────────────────
 
-FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:8088')
 
 CSRF_TRUSTED_ORIGINS = [
     o.strip()

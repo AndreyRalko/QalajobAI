@@ -28,7 +28,10 @@ X_FRAME_OPTIONS = "DENY"
 
 CSRF_TRUSTED_ORIGINS = [
     o.strip()
-    for o in env("CSRF_TRUSTED_ORIGINS", default="").split(",")  # noqa: F405
+    for o in env(
+        "CSRF_TRUSTED_ORIGINS",
+        default="http://localhost:8088,http://127.0.0.1:8088",
+    ).split(",")  # noqa: F405
     if o.strip()
 ]
 

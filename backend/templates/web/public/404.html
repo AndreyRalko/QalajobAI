@@ -1,0 +1,10 @@
+{% extends "web/public/base_public.html" %}
+{% load web_i18n %}
+{% block title %}404 — QalaJob AI{% endblock %}
+{% block content %}
+<section class="section narrow">
+  <h1>404</h1>
+  <p class="lead">{% t "web.notFound" %}</p>
+  <a class="btn" href="{% url 'web:home' %}">{% t "web.backHome" %}</a>
+</section>
+{% endblock %}
