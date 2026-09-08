@@ -1,9 +1,0 @@
-import { redirect } from "next/navigation";
-
-export default function EmployerLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  redirect("/dashboard/student/ai");
-}

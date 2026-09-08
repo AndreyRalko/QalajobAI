@@ -2,14 +2,13 @@
 
 Платформа карьеры для студентов: **Django monolith** (HTML + REST API).
 
-> Папка `src/` (Next.js) — устаревший фронт, в запуске не используется.
-
 ## Стек
 
 - **UI:** Django templates + static CSS/JS (`apps.web`)
-- **API:** Django REST Framework (session + JWT) под `/api/v1/`
+- **API:** Django REST Framework под `/api/v1/`
 - **БД:** SQLite
 - **Сервер:** Waitress `:8088`
+- **AI:** гибрид Ollama (локально) + OpenAI API
 
 ## Быстрый запуск
 
@@ -28,6 +27,6 @@ python run_waitress.py
 - API health: http://localhost:8088/api/health/  
 - Django Admin: http://localhost:8088/admin/
 
-Логин студента: `Иванов_Иван` / `Student123`
+Тестовый студент: `Иванов_Иван` / `Student123`
 
 Подробнее: **[SETUP.md](./SETUP.md)**, деплой: **[DEPLOY.md](./DEPLOY.md)**.

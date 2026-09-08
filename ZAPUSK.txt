@@ -1,187 +1,44 @@
 ================================================================================
-  QalaJob AI — пошаговая инструкция запуска проекта
+  QalaJob AI — запуск (Django monolith)
 ================================================================================
 
-Проект = Next.js (фронт) + Django (бэкенд API) + Ollama (локальный AI, опционально)
-
-  Frontend:  http://localhost:3000
-  Backend:   http://127.0.0.1:8000   ← запускается через runserver
-  Ollama:    http://127.0.0.1:11434
-
-ВАЖНО:
-  - Backend ОБЯЗАТЕЛЬНО запускать командой:  python manage.py runserver
-  - Frontend ОБЯЗАТЕЛЬНО запускать командой:  npm run dev
-  - Без runserver API не работает — сайт не сможет войти и вызывать AI.
-
+  Сайт + API:  http://localhost:8088
+  Вход:        http://localhost:8088/login/
+  Admin:       http://localhost:8088/admin/
+  Ollama:      http://127.0.0.1:11434  (опционально, локальный AI)
 
 ================================================================================
-  ЧАСТЬ 1. ПЕРВЫЙ ЗАПУСК (один раз)
+  ЕЖЕДНЕВНЫЙ ЗАПУСК
 ================================================================================
 
-ШАГ 1. Открыть папку проекта
------------------------------
-  cd D:\projects\QalajobAI
+  Двойной клик:  start.bat
 
+  Или вручную:
 
-ШАГ 2. Backend — Python окружение
-----------------------------------
-  cd backend
-  python -m venv venv
-  .\venv\Scripts\Activate.ps1
-  python -m pip install --upgrade pip
-  pip install -r requirements.txt
-  New-Item -ItemType Directory -Force -Path logs
+    cd D:\projects\QalajobAI\backend
+    .\venv\Scripts\Activate.ps1
+    python manage.py collectstatic --noinput
+    python run_waitress.py
 
-  Если Activate.ps1 не работает:
-    Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+  Тестовый вход:  Иванов_Иван / Student123
 
+================================================================================
+  ПЕРВЫЙ ЗАПУСК (один раз)
+================================================================================
 
-ШАГ 3. Файл backend\.env
--------------------------
-  Создайте или проверьте файл backend\.env
-  (секреты, ключи OpenAI, настройки гибридного AI, LMS — см. SETUP.md)
+  1) Python venv + зависимости
+       cd backend
+       python -m venv venv
+       .\venv\Scripts\Activate.ps1
+       pip install -r requirements.txt
 
-  Минимум для AI:
-    OPENAI_API_KEY=sk-...
-    LLM_HYBRID_ENABLED=true
-    LLM_LOCAL_BASE_URL=http://127.0.0.1:11434/v1
-    LLM_LOCAL_MODEL=gemma3:4b
-    LLM_FALLBACK_TO_OPENAI=true
+  2) backend\.env  (SECRET_KEY, OPENAI_API_KEY, LLM_*, LMS_* — см. SETUP.md)
 
+  3) Миграции
+       python manage.py migrate
 
-ШАГ 4. Миграции базы данных
-----------------------------
-  cd backend
-  .\venv\Scripts\Activate.ps1
-  python manage.py migrate
-
-
-ШАГ 5. Ollama + модель Qwen (для локального AI)
------------------------------------------------
-  1) Установить Ollama: https://ollama.com
-  2) Скачать модель:
+  4) (Опционально) Ollama
        ollama pull gemma3:4b
-  3) Проверка:
-       ollama list
 
-
-ШАГ 6. Frontend — зависимости
-------------------------------
-  cd D:\projects\QalajobAI
-  npm install
-
-  Опционально файл .env.local в корне:
-    NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
-
-
+Подробнее: SETUP.md и DEPLOY.md
 ================================================================================
-  ЧАСТЬ 2. ЕЖЕДНЕВНЫЙ ЗАПУСК (каждый раз при работе)
-================================================================================
-
-Нужно 2–3 открытых терминала. Не закрывайте их, пока работаете с проектом.
-
-
-ТЕРМИНАЛ 1 — Ollama (если нужен AI)
-------------------------------------
-  ollama serve
-
-  Или просто проверьте, что Ollama уже работает:
-    ollama list
-
-  Если модели нет — ollama pull gemma3:4b
-
-
-ТЕРМИНАЛ 2 — Backend (Django)  *** ОБЯЗАТЕЛЬНО runserver ***
--------------------------------------------------------------
-  cd D:\projects\QalajobAI\backend
-  .\venv\Scripts\Activate.ps1
-  python manage.py runserver
-
-  Должно появиться:
-    Starting development server at http://127.0.0.1:8000/
-
-  Проверка в браузере:
-    http://127.0.0.1:8000/api/health/     — должен ответить OK
-    http://127.0.0.1:8000/api/schema/swagger-ui/  — документация API
-
-  Без этой команды backend НЕ РАБОТАЕТ.
-
-  Альтернатива без Activate.ps1:
-    .\venv\Scripts\python.exe manage.py runserver
-
-
-ТЕРМИНАЛ 3 — Frontend (Next.js)
---------------------------------
-  cd D:\projects\QalajobAI
-  npm run dev
-
-  Открыть в браузере:
-    http://localhost:3000
-
-
-================================================================================
-  ЧАСТЬ 3. ВХОД В СИСТЕМУ
-================================================================================
-
-  Студент:      логин Иванов_Иван      пароль Student123
-  Студент (тест): логин Демо_Алина       пароль Student123   StudentID DEMO90001
-  Работодатель: логин Петров_Петр       пароль Employer123
-  Админ:        логин Сидоров_Админ     пароль Admin1234
-
-  Страницы админа:
-    /dashboard/admin/users
-    /dashboard/admin/ai-logs
-    /dashboard/admin/lms-sync
-
-
-================================================================================
-  ЧАСТЬ 4. КРАТКАЯ ШПАРГАЛКА (уже всё установлено)
-================================================================================
-
-  Терминал 1:  ollama serve
-  Терминал 2:  cd backend && .\venv\Scripts\Activate.ps1 && python manage.py runserver
-  Терминал 3:  npm run dev
-
-  Сайт:  http://localhost:3000
-  API:   http://127.0.0.1:8000/api/health/
-
-
-================================================================================
-  ЧАСТЬ 5. ОПЦИОНАЛЬНО
-================================================================================
-
-LMS sync (туннель открыть вручную, затем команда):
-  ssh -L 6080:localhost:6080 admin_kgu@192.168.10.2
-  cd backend
-  python manage.py sync_lms_daily
-
-LMS sync по расписанию (нужен Redis + уже открытый туннель):
-  redis-server
-  celery -A config worker -B -l info
-
-Только OpenAI без Ollama — в backend\.env:
-  LLM_HYBRID_ENABLED=false
-
-Тесты:
-  cd backend
-  .\venv\Scripts\python.exe manage.py test apps.ai
-
-
-================================================================================
-  ЧАСТЬ 6. ЧАСТЫЕ ОШИБКИ
-================================================================================
-
-  Сайт открывается, но логин/AI не работает
-    → Запущен ли runserver? Проверьте http://127.0.0.1:8000/api/health/
-
-  AI пишет "Demo mode"
-    → Нет OPENAI_API_KEY в backend\.env или Ollama не запущен
-
-  404 на http://127.0.0.1:8000/
-    → Это нормально. UI на :3000, API на :8000/api/...
-
-  Frontend не видит backend
-    → runserver должен быть на порту 8000
-    → NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
-
-Подробнее: SETUP.md
