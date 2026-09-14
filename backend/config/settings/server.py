@@ -35,6 +35,19 @@ CSRF_TRUSTED_ORIGINS = [
     if o.strip()
 ]
 
+# If hosts are set explicitly, also trust http/https origins for them
+# (common CSRF 403 when opening via domain/IP instead of localhost).
+_extra_csrf_origins = []
+for _host in ALLOWED_HOSTS:  # noqa: F405
+    _host = (_host or "").strip()
+    if not _host or _host in ("*", "localhost", "127.0.0.1"):
+        continue
+    for _scheme in ("https", "http"):
+        _origin = f"{_scheme}://{_host}"
+        if _origin not in CSRF_TRUSTED_ORIGINS:
+            _extra_csrf_origins.append(_origin)
+CSRF_TRUSTED_ORIGINS = CSRF_TRUSTED_ORIGINS + _extra_csrf_origins
+
 db_engine = env("DB_ENGINE", default="django.db.backends.sqlite3")  # noqa: F405
 
 if "postgresql" in db_engine:
