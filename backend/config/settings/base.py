@@ -314,14 +314,15 @@ LMS_MYSQL_CONNECT_TIMEOUT = env.int('LMS_MYSQL_CONNECT_TIMEOUT', default=30)
 LMS_MYSQL_READ_TIMEOUT = env.int('LMS_MYSQL_READ_TIMEOUT', default=1800)
 LMS_STUDENTS_PAGE_SIZE = env.int('LMS_STUDENTS_PAGE_SIZE', default=200)
 
+# LMS fields: Lastname, firstname, login, password WHERE isStudent=1
+# StudentID is also selected — required to upsert local student accounts.
 _DEFAULT_STUDENTS_SQL = """
 SELECT
     CAST(s.StudentID AS CHAR) AS student_id,
-    s.lastname AS last_name,
-    s.firstname AS first_name,
-    s.patronymic AS patronymic,
+    s.Lastname AS Lastname,
+    s.firstname AS firstname,
     s.Login AS login,
-    s.Password AS password_md5
+    s.Password AS password
 FROM students s
 WHERE s.isStudent = 1
   AND s.StudentID IS NOT NULL
