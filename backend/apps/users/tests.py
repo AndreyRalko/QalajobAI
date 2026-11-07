@@ -19,7 +19,7 @@ class UserModelTests(TestCase):
         UserProfile.objects.create(user=user, role='student')
         self.assertEqual(user.email, 'normal@example.com')
         self.assertTrue(user.check_password('password123'))
-        self.assertEqual(len(user.password), 32)
+        self.assertTrue(user.password.startswith("unsalted_md5$"))
         self.assertEqual(user.profile.role, 'student')
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
@@ -40,14 +40,21 @@ class UserModelTests(TestCase):
 
 class AuthAPITests(TestCase):
     def setUp(self):
+        from apps.users.identity import set_encrypted_identity, store_encrypted_login
+
         self.client = APIClient()
-        self.user = User.objects.create_user(
-            username='Тестов_Пользователь',
-            password='password123',
-            first_name='Пользователь',
-            last_name='Тестов',
+        self.user = User(username="tmp")
+        set_encrypted_identity(
+            self.user,
+            login="Тестов_Пользователь",
+            first_name="Пользователь",
+            last_name="Тестов",
         )
-        UserProfile.objects.create(user=self.user, role='student')
+        self.user.set_password("password123")
+        self.user.save()
+        profile = UserProfile.objects.create(user=self.user, role="student")
+        store_encrypted_login(profile, "Тестов_Пользователь")
+        profile.save(update_fields=["login_encrypted"])
 
     def test_login_successful(self):
         url = reverse('users:login')

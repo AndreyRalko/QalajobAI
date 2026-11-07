@@ -1,49 +1,40 @@
 @echo off
-chcp 65001 >nul
 cd /d "%~dp0"
-title QalaJob AI — LMS student sync
+title QalaJob AI - LMS student sync
 
 echo ========================================
-echo  QalaJob AI — синхронизация студентов LMS
+echo  QalaJob AI - LMS student sync
 echo ========================================
 echo.
-echo  Запрос к LMS:
-echo    SELECT Lastname, firstname, login, password
-echo    FROM students WHERE isStudent = 1
-echo    (+ StudentID — нужен для привязки аккаунта)
+echo  Open SSH tunnel first, then press a key.
+echo  Example: ssh -L 6080:localhost:6080 user@lms-host
 echo.
-echo  Перед запуском откройте SSH-туннель, например:
-echo    ssh -L 6080:localhost:6080 user@lms-host
-echo.
-echo  В backend\.env должны быть:
-echo    LMS_SYNC_ENABLED=true
-echo    LMS_MYSQL_HOST / PORT / DB / USER / PASSWORD
+echo  Set LMS_* values in backend\.env before run.
 echo.
 
 cd /d "%~dp0backend"
 
-if exist "venv\Scripts\activate.bat" (
-  call "venv\Scripts\activate.bat"
-) else if exist ".venv\Scripts\activate.bat" (
-  call ".venv\Scripts\activate.bat"
-) else (
-  echo [ERROR] venv не найден. Создайте: python -m venv venv
+set "PY="
+if exist "venv\Scripts\python.exe" set "PY=venv\Scripts\python.exe"
+if not defined PY if exist ".venv\Scripts\python.exe" set "PY=.venv\Scripts\python.exe"
+if not defined PY (
+  echo [ERROR] venv python.exe not found. Create: python -m venv venv
   pause
   exit /b 1
 )
 
 set DJANGO_SETTINGS_MODULE=config.settings.server
 
-echo Запуск sync_lms_daily...
+echo Running: %PY% manage.py sync_lms_daily
 echo.
-python manage.py sync_lms_daily
+"%PY%" manage.py sync_lms_daily
 set ERR=%ERRORLEVEL%
 echo.
 
-if %ERR% neq 0 (
-  echo [ERROR] Синхронизация завершилась с ошибкой ^(%ERR%^).
+if not "%ERR%"=="0" (
+  echo [ERROR] Sync failed with code %ERR%.
 ) else (
-  echo [OK] Синхронизация завершена.
+  echo [OK] Sync finished.
 )
 
 echo.

@@ -39,7 +39,16 @@ def login_view(request):
     if request.method == "POST":
         username = (request.POST.get("login") or "").strip()
         password = request.POST.get("password") or ""
-        user = authenticate(request, username=username, password=password)
+        from apps.users.crypto import login_to_username
+
+        user = authenticate(
+            request,
+            username=login_to_username(username),
+            password=password,
+        )
+        if not user:
+            # Legacy plaintext usernames (pre-encryption).
+            user = authenticate(request, username=username, password=password)
         if not user:
             error = _tx(request, "web.loginInvalid")
         else:

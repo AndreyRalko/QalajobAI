@@ -330,12 +330,13 @@ class AIViewSet(viewsets.ViewSet):
         try:
             from apps.vacancies.models import Vacancy
             from apps.profiles.models import StudentProfile
+            from apps.users.identity import decrypt_display_name, get_user_first_name
 
             vacancy = Vacancy.objects.get(id=vacancy_id)
             profile = StudentProfile.objects.get(user=request.user)
 
             candidate_data = {
-                'name': profile.name or request.user.first_name,
+                'name': decrypt_display_name(profile.name) or get_user_first_name(request.user),
                 'skills': profile.skills or '',
                 'experience': profile.resume_text or '',
             }

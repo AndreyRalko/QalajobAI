@@ -7,6 +7,8 @@ from typing import Any
 
 from django.contrib.auth.models import AnonymousUser, User
 
+from apps.users.identity import get_user_login
+
 logger = logging.getLogger(__name__)
 
 MAX_TEXT_LENGTH = 12000
@@ -122,7 +124,7 @@ def log_openai_exchange(
         AiActionLog.objects.create(
             user=user,
             student_id=get_student_id(user),
-            user_login=user.username,
+            user_login=get_user_login(user),
             feature=ctx.get("feature") or "unknown",
             endpoint=ctx.get("endpoint") or "",
             status=status,

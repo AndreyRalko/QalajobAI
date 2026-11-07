@@ -16,7 +16,9 @@ def web_context(request):
     if user and user.is_authenticated:
         profile = getattr(user, "profile", None)
         role = getattr(profile, "role", None)
-        display_name = (user.get_full_name() or "").strip() or user.username
+        from apps.users.identity import get_user_full_name, get_user_login
+
+        display_name = get_user_full_name(user) or get_user_login(user)
     return {
         "web_role": role,
         "web_display_name": display_name,

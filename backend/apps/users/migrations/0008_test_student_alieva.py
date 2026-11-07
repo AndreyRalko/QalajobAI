@@ -2,9 +2,9 @@ from django.db import migrations
 
 
 def load_test_student(apps, schema_editor):
-    from apps.users.services.preset_users import load_preset_users
-
-    load_preset_users()
+    # Preset accounts (including Демо_Алина) are seeded/encrypted in 0010.
+    # Avoid calling live load_preset_users() here — it expects login_encrypted.
+    pass
 
 
 def unload_test_student(apps, schema_editor):

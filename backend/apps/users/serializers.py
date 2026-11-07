@@ -9,18 +9,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         read_only=True,
         allow_blank=True,
     )
-    login = serializers.CharField(
-        source="user.username",
-        read_only=True,
-    )
-    first_name = serializers.CharField(
-        source="user.first_name",
-        read_only=True,
-    )
-    last_name = serializers.CharField(
-        source="user.last_name",
-        read_only=True,
-    )
+    login = serializers.SerializerMethodField()
+    first_name = serializers.SerializerMethodField()
+    last_name = serializers.SerializerMethodField()
     date_joined = serializers.DateTimeField(
         source="user.date_joined",
         read_only=True,
@@ -64,13 +55,28 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    def get_login(self, obj):
+        from apps.users.identity import get_user_login
+
+        return get_user_login(obj.user)
+
+    def get_first_name(self, obj):
+        from apps.users.identity import get_user_first_name
+
+        return get_user_first_name(obj.user)
+
+    def get_last_name(self, obj):
+        from apps.users.identity import get_user_last_name
+
+        return get_user_last_name(obj.user)
+
     def get_name(self, obj):
-        full_name = obj.user.get_full_name().strip()
+        from apps.users.identity import get_user_full_name, get_user_login
+
+        full_name = get_user_full_name(obj.user)
         if full_name:
             return full_name
-        if obj.user.first_name:
-            return obj.user.first_name
-        return obj.user.username
+        return get_user_login(obj.user)
 
     def get_subscription(self, obj):
         subscription = getattr(obj.user, "subscription", None)

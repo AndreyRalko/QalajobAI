@@ -162,5 +162,11 @@ class AiActionLogSerializer(serializers.ModelSerializer):
             return obj.feature
 
     def get_user_name(self, obj):
-        full_name = obj.user.get_full_name().strip()
-        return full_name or obj.user_login or str(obj.user_id)
+        from apps.users.identity import get_user_full_name, get_user_login
+
+        return (
+            get_user_full_name(obj.user)
+            or obj.user_login
+            or get_user_login(obj.user)
+            or str(obj.user_id)
+        )
