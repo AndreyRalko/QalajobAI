@@ -1,5 +1,5 @@
 {% extends "web/admin/base_admin.html" %}
-{% load web_i18n %}
+{% load web_i18n user_crypto %}
 {% block title %}{% t "web.aiLogs" %} — Admin{% endblock %}
 {% block page_heading %}{% t "web.aiLogs" %}{% endblock %}
 {% block content %}
@@ -18,7 +18,7 @@
   {% for log in page %}
     <tr>
       <td>{{ log.created_at }}</td>
-      <td>{{ log.user_login|default:log.user.username }}</td>
+      <td>{{ log.user_login|default:log.user|user_login }}</td>
       <td>{{ log.feature }}</td>
       <td>{{ log.status }}</td>
       <td>{{ log.provider|default:"—" }}</td>

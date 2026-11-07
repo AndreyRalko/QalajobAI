@@ -9,7 +9,7 @@ class StudentProfile(models.Model):
         related_name="student_profile"
     )
 
-    name = models.CharField(max_length=150, blank=True)
+    name = models.CharField(max_length=512, blank=True)
     university = models.CharField(max_length=200, blank=True)
     major = models.CharField(max_length=200, blank=True)
     course = models.CharField(max_length=50, blank=True)
@@ -45,7 +45,9 @@ class StudentProfile(models.Model):
         return round(filled / len(fields) * 100)
 
     def __str__(self):
-        return self.name or self.user.email
+        from apps.users.identity import decrypt_display_name
+
+        return decrypt_display_name(self.name) or self.user.email
 
 
 class EmployerProfile(models.Model):
@@ -55,7 +57,7 @@ class EmployerProfile(models.Model):
         related_name="employer_profile"
     )
 
-    full_name = models.CharField(max_length=150, blank=True)
+    full_name = models.CharField(max_length=512, blank=True)
 
     position = models.CharField(
         max_length=150,
@@ -74,7 +76,9 @@ class EmployerProfile(models.Model):
     )
 
     def __str__(self):
-        return self.full_name or self.user.email
+        from apps.users.identity import decrypt_display_name
+
+        return decrypt_display_name(self.full_name) or self.user.email
 
 
 class AdminProfile(models.Model):
@@ -85,7 +89,7 @@ class AdminProfile(models.Model):
     )
 
     full_name = models.CharField(
-        max_length=150,
+        max_length=512,
         blank=True
     )
 
@@ -99,4 +103,6 @@ class AdminProfile(models.Model):
     )
 
     def __str__(self):
-        return self.full_name or self.user.email
+        from apps.users.identity import decrypt_display_name
+
+        return decrypt_display_name(self.full_name) or self.user.email

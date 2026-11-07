@@ -2,6 +2,8 @@ from django.test import TestCase
 from unittest.mock import patch
 from django.contrib.auth.models import User
 
+from apps.users.crypto import login_to_username
+from apps.users.identity import decrypt_display_name, get_user_login
 from apps.users.models import UserProfile, UserRole
 
 from .services.mappers import map_student_row
@@ -39,16 +41,22 @@ class SyncStudentsTests(TestCase):
         stats = sync_students_from_rows(rows)
         self.assertEqual(stats["students_created"], 1)
 
-        user = User.objects.get(username="test.student77701")
+        user = User.objects.get(username=login_to_username("test.student77701"))
         self.assertTrue(user.check_password("Student123"))
+        self.assertEqual(get_user_login(user), "test.student77701")
         self.assertEqual(user.profile.student_id, "77701")
         self.assertEqual(user.profile.role, UserRole.STUDENT)
-        self.assertEqual(user.student_profile.name, "Тестов Студент Тестович")
+        self.assertEqual(
+            decrypt_display_name(user.student_profile.name),
+            "Тестов Студент Тестович",
+        )
 
     def test_sync_students_skips_non_student_login(self):
-        User.objects.create_user(username="employer.login", password="x")
+        employer = User.objects.create_user(
+            username=login_to_username("employer.login"), password="x"
+        )
         UserProfile.objects.create(
-            user=User.objects.get(username="employer.login"),
+            user=employer,
             role=UserRole.EMPLOYER,
         )
         rows = [

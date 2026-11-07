@@ -34,11 +34,14 @@ class AdminUsersView(AdminRequiredMixin, View):
     template_name = "web/admin/users.html"
 
     def get(self, request):
+        from apps.users.crypto import login_to_username
+
         q = (request.GET.get("q") or "").strip()
         qs = UserProfile.objects.select_related("user").order_by("-user__date_joined")
         if q:
             qs = qs.filter(
-                Q(user__username__icontains=q)
+                Q(user__username=login_to_username(q))
+                | Q(user__username__iexact=q)
                 | Q(user__email__icontains=q)
                 | Q(student_id__icontains=q)
             )

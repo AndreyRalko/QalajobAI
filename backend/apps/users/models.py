@@ -52,6 +52,12 @@ class UserProfile(models.Model):
         help_text="LMS StudentID from Platonus",
     )
 
+    login_encrypted = models.TextField(
+        blank=True,
+        default="",
+        help_text="Fernet-encrypted login (SECRET_KEY)",
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
@@ -69,7 +75,10 @@ class UserProfile(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user.username} ({self.role})"
+        from apps.users.identity import get_user_login
+
+        login = get_user_login(self.user) or self.user_id
+        return f"{login} ({self.role})"
 
 
 class EmailVerificationToken(models.Model):

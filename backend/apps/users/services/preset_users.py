@@ -1,12 +1,20 @@
 from django.contrib.auth.models import User
 
 from apps.profiles.models import AdminProfile, EmployerProfile, StudentProfile
+from apps.users.crypto import login_to_username
+from apps.users.identity import (
+    encrypt_display_name,
+    set_encrypted_identity,
+    store_encrypted_login,
+)
 from apps.users.models import UserProfile
 from apps.users.preset_accounts import OLD_PRESET_USERNAMES, PRESET_ACCOUNTS
 
 
 def load_preset_users():
-    User.objects.filter(username__in=OLD_PRESET_USERNAMES).delete()
+    # Remove legacy plaintext + new digest usernames for old presets.
+    digest_names = [login_to_username(name) for name in OLD_PRESET_USERNAMES]
+    User.objects.filter(username__in=list(OLD_PRESET_USERNAMES) + digest_names).delete()
     User.objects.filter(email__in=OLD_PRESET_USERNAMES).delete()
 
     created = 0
@@ -19,23 +27,19 @@ def load_preset_users():
         name = f"{last_name} {first_name}"
         role = account["role"]
         password_md5 = account["password_md5"]
+        username = login_to_username(login)
 
-        user, was_created = User.objects.get_or_create(
-            username=login,
-            defaults={
-                "first_name": first_name,
-                "last_name": last_name,
-                "is_staff": role == "admin",
-                "is_superuser": role == "admin",
-            },
+        user, was_created = User.objects.get_or_create(username=username)
+        set_encrypted_identity(
+            user,
+            login=login,
+            first_name=first_name,
+            last_name=last_name,
+            password_md5=password_md5,
         )
-
-        user.first_name = first_name
-        user.last_name = last_name
         user.email = ""
         user.is_staff = role == "admin"
         user.is_superuser = role == "admin"
-        user.password = password_md5
         user.save()
 
         profile_defaults = {"role": role, "email_verified": True}
@@ -52,16 +56,18 @@ def load_preset_users():
         )
         profile.role = role
         profile.email_verified = True
+        store_encrypted_login(profile, login)
         if student_id and not UserProfile.objects.filter(student_id=student_id).exclude(user=user).exists():
             profile.student_id = student_id
         profile.save()
 
+        encrypted_name = encrypt_display_name(name)
         if role == "student":
             student_profile, _ = StudentProfile.objects.get_or_create(
-                user=user, defaults={"name": name}
+                user=user, defaults={"name": encrypted_name}
             )
             if login == "Иванов_Иван":
-                student_profile.name = name
+                student_profile.name = encrypted_name
                 student_profile.university = "Казахский национальный педагогический университет"
                 student_profile.major = "История и география"
                 student_profile.course = "3"
@@ -78,7 +84,7 @@ def load_preset_users():
                 )
                 student_profile.save()
             elif login == "Демо_Алина":
-                student_profile.name = name
+                student_profile.name = encrypted_name
                 student_profile.university = "Кокшетауский университет имени Ш. Уалиханова"
                 student_profile.major = "Информационные системы"
                 student_profile.course = "2"
@@ -94,10 +100,18 @@ def load_preset_users():
                     "базами данных и применением ИИ в образовании."
                 )
                 student_profile.save()
+            else:
+                if not student_profile.name:
+                    student_profile.name = encrypted_name
+                    student_profile.save(update_fields=["name"])
         elif role == "employer":
-            EmployerProfile.objects.get_or_create(user=user, defaults={"full_name": name})
+            EmployerProfile.objects.get_or_create(
+                user=user, defaults={"full_name": encrypted_name}
+            )
         elif role == "admin":
-            AdminProfile.objects.get_or_create(user=user, defaults={"full_name": name})
+            AdminProfile.objects.get_or_create(
+                user=user, defaults={"full_name": encrypted_name}
+            )
 
         if was_created:
             created += 1

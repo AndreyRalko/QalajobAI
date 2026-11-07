@@ -12,7 +12,11 @@ class ParticipantSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'role']
 
     def get_name(self, obj):
-        return obj.get_full_name() or obj.email.split('@')[0]
+        from apps.users.identity import get_user_full_name, get_user_login
+
+        return get_user_full_name(obj) or get_user_login(obj) or (
+            obj.email.split("@")[0] if obj.email else str(obj.pk)
+        )
 
     def get_role(self, obj):
         try:

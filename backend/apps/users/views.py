@@ -108,25 +108,32 @@ class LoginView(APIView):
         login = serializer.validated_data["login"].strip()
         password = serializer.validated_data["password"]
 
+        from apps.users.crypto import login_to_username
+
+        auth_username = login_to_username(login)
         user = authenticate(
-            username=login,
+            username=auth_username,
             password=password,
         )
+        if not user:
+            # Legacy plaintext usernames (pre-encryption).
+            user = authenticate(username=login, password=password)
 
         if not user:
-            # Log failed attempt
-            try:
-                failed_user = User.objects.get(username=login)
+            failed_user = User.objects.filter(username=auth_username).first()
+            if failed_user is None:
+                failed_user = User.objects.filter(username=login).first()
+            if failed_user is not None:
                 LoginHistory.objects.create(
                     user=failed_user,
                     ip_address=_get_client_ip(request),
-                    user_agent=request.META.get('HTTP_USER_AGENT', ''),
+                    user_agent=request.META.get("HTTP_USER_AGENT", ""),
                     success=False,
                 )
-            except User.DoesNotExist:
-                pass
 
-            security_logger.warning(f"Failed login attempt for {login} from {_get_client_ip(request)}")
+            security_logger.warning(
+                f"Failed login attempt for {login} from {_get_client_ip(request)}"
+            )
 
             return Response(
                 {"message": "Invalid credentials"},

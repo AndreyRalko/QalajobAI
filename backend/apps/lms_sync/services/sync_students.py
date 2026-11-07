@@ -4,7 +4,13 @@ from django.contrib.auth.models import User
 from django.db import transaction
 
 from apps.profiles.models import StudentProfile
+from apps.users.identity import (
+    encrypt_display_name,
+    set_encrypted_identity,
+    store_encrypted_login,
+)
 from apps.users.models import UserProfile, UserRole
+from apps.users.crypto import login_to_username
 
 from .mappers import map_student_row
 
@@ -56,27 +62,30 @@ def _upsert_student(student):
     user = profile.user if profile else None
 
     if user is None:
-        user = User.objects.filter(username=login).first()
+        username = login_to_username(login)
+        user = User.objects.filter(username=username).first()
         if user and hasattr(user, "profile") and user.profile.role != UserRole.STUDENT:
             logger.warning(
-                "Skip student_id=%s: login %s belongs to role=%s",
+                "Skip student_id=%s: login belongs to role=%s",
                 student_id,
-                login,
                 user.profile.role,
             )
             return None
 
     was_created = user is None
     if was_created:
-        user = User(username=login)
+        user = User()
 
-    user.username = login
-    user.first_name = student["first_name"]
-    user.last_name = student["last_name"]
+    set_encrypted_identity(
+        user,
+        login=login,
+        first_name=student["first_name"],
+        last_name=student["last_name"],
+        password_md5=student["password_md5"],
+    )
     user.email = ""
     user.is_staff = False
     user.is_superuser = False
-    user.password = student["password_md5"]
     user.save()
 
     profile, _ = UserProfile.objects.get_or_create(
@@ -90,14 +99,19 @@ def _upsert_student(student):
     profile.role = UserRole.STUDENT
     profile.email_verified = True
     profile.student_id = student_id
+    store_encrypted_login(profile, login)
     profile.save()
 
     student_profile, _ = StudentProfile.objects.get_or_create(
         user=user,
-        defaults={"name": full_name},
+        defaults={"name": encrypt_display_name(full_name)},
     )
     if not student_profile.name:
-        student_profile.name = full_name
+        student_profile.name = encrypt_display_name(full_name)
+        student_profile.save(update_fields=["name"])
+    else:
+        # Keep FIO in sync with LMS on updates.
+        student_profile.name = encrypt_display_name(full_name)
         student_profile.save(update_fields=["name"])
 
     return was_created

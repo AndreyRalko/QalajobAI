@@ -22,6 +22,11 @@ backend/media/
 # collected static is generated; keep out of git if large
 # backend/staticfiles/
 
+# Presentation
+docs/QalaJobAI-presentation.pptx
+docs/QalaJobAI-presentation.html
+docs/build_pptx.py
+
 # IDE
 .idea/
 .vscode/

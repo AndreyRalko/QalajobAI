@@ -13,6 +13,7 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.html import strip_tags
 
+from apps.users.identity import get_user_first_name
 from apps.users.models import EmailVerificationToken, PasswordResetToken
 
 import logging
@@ -49,7 +50,7 @@ def send_verification_email(user):
         <div style="background: #f8fafc; padding: 30px; border-radius: 0 0 16px 16px; border: 1px solid #e2e8f0;">
             <h2 style="color: #1e293b; margin-top: 0;">Verify your email address</h2>
             <p style="color: #475569; line-height: 1.6;">
-                Hello <strong>{user.first_name or user.email}</strong>,
+                Hello <strong>{get_user_first_name(user) or user.email}</strong>,
             </p>
             <p style="color: #475569; line-height: 1.6;">
                 Please click the button below to verify your email address and activate your account.
@@ -131,7 +132,7 @@ def send_password_reset_email(user):
         <div style="background: #f8fafc; padding: 30px; border-radius: 0 0 16px 16px; border: 1px solid #e2e8f0;">
             <h2 style="color: #1e293b; margin-top: 0;">Reset your password</h2>
             <p style="color: #475569; line-height: 1.6;">
-                Hello <strong>{user.first_name or user.email}</strong>,
+                Hello <strong>{get_user_first_name(user) or user.email}</strong>,
             </p>
             <p style="color: #475569; line-height: 1.6;">
                 We received a request to reset your password. Click the button below to set a new password.
