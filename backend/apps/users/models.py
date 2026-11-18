@@ -135,3 +135,43 @@ class LoginHistory(models.Model):
     def __str__(self):
         status = "success" if self.success else "failed"
         return f"{self.user.email} - {status} - {self.created_at}"
+
+
+class UserActivityAction(models.TextChoices):
+    VISIT = "visit", "Visit"
+    LOGIN = "login", "Login"
+    LOGOUT = "logout", "Logout"
+
+
+class UserActivityLog(models.Model):
+    """User activity / visits for admin analytics."""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activity_logs",
+    )
+    user_login = models.CharField(max_length=150, blank=True, db_index=True)
+    action = models.CharField(
+        max_length=20,
+        choices=UserActivityAction.choices,
+        default=UserActivityAction.VISIT,
+        db_index=True,
+    )
+    path = models.CharField(max_length=255, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    created_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        db_table = "user_activity_logs"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["created_at", "action"]),
+            models.Index(fields=["user", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user_login or self.user_id} {self.action} @ {self.created_at}"

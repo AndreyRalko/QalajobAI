@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Count, Q
+from django.db.models.functions import TruncDate
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import TemplateView, View
 
@@ -8,7 +9,7 @@ from apps.admin_api.models import SystemSettings
 from apps.ai.models import AiActionLog
 from apps.lms_sync.models import LmsSyncLog, LmsSyncSchedule
 from apps.lms_sync.services.sync import run_lms_sync
-from apps.users.models import UserProfile, UserRole
+from apps.users.models import UserActivityLog, UserProfile, UserRole
 from apps.vacancies.models import Vacancy
 from apps.web.access import RoleRequiredMixin
 
@@ -27,6 +28,7 @@ class AdminHomeView(AdminRequiredMixin, TemplateView):
         ctx["employers_count"] = UserProfile.objects.filter(role=UserRole.EMPLOYER).count()
         ctx["vacancies_count"] = Vacancy.objects.count()
         ctx["ai_logs_count"] = AiActionLog.objects.count()
+        ctx["activity_count"] = UserActivityLog.objects.count()
         return ctx
 
 
@@ -126,6 +128,91 @@ class AdminAiLogsView(AdminRequiredMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         qs = AiActionLog.objects.select_related("user").order_by("-created_at")
         ctx["page"] = Paginator(qs, 50).get_page(self.request.GET.get("page"))
+        return ctx
+
+
+class AdminActivityView(AdminRequiredMixin, TemplateView):
+    template_name = "web/admin/activity.html"
+
+    def get_context_data(self, **kwargs):
+        import json
+
+        ctx = super().get_context_data(**kwargs)
+        daily = list(
+            UserActivityLog.objects.annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(total=Count("id"))
+            .order_by("day")
+        )
+        max_total = max((row["total"] for row in daily), default=1) or 1
+        chart_rows = []
+        for row in daily:
+            chart_rows.append(
+                {
+                    "day": row["day"].isoformat() if row["day"] else "",
+                    "label": row["day"].strftime("%d.%m") if row["day"] else "",
+                    "total": row["total"],
+                }
+            )
+
+        # SVG line chart geometry (viewBox coordinates).
+        width, height = 920, 320
+        pad_l, pad_r, pad_t, pad_b = 44, 16, 20, 36
+        inner_w = width - pad_l - pad_r
+        inner_h = height - pad_t - pad_b
+        n = len(chart_rows)
+        points = []
+        for i, row in enumerate(chart_rows):
+            x = pad_l if n == 1 else pad_l + (inner_w * i / (n - 1))
+            y = pad_t + inner_h - (row["total"] / max_total) * inner_h
+            points.append({"x": round(x, 2), "y": round(y, 2), **row})
+
+        polyline = " ".join(f"{p['x']},{p['y']}" for p in points)
+        area = ""
+        if points:
+            area = (
+                f"{pad_l},{pad_t + inner_h} "
+                + polyline
+                + f" {points[-1]['x']},{pad_t + inner_h}"
+            )
+
+        # Y-axis ticks: 0, mid, max
+        y_ticks = []
+        for frac in (0, 0.5, 1):
+            value = int(round(max_total * frac))
+            y = pad_t + inner_h - frac * inner_h
+            y_ticks.append({"value": value, "y": round(y, 2)})
+
+        # X labels: first, ~quarter marks, last
+        x_labels = []
+        if points:
+            indexes = {0, n - 1}
+            if n > 4:
+                indexes.update({n // 4, n // 2, (3 * n) // 4})
+            for i in sorted(indexes):
+                x_labels.append(
+                    {"label": points[i]["label"], "x": points[i]["x"], "total": points[i]["total"]}
+                )
+
+        ctx["daily"] = chart_rows
+        ctx["max_total"] = max_total
+        ctx["chart"] = {
+            "width": width,
+            "height": height,
+            "pad_l": pad_l,
+            "pad_t": pad_t,
+            "inner_h": inner_h,
+            "baseline_y": pad_t + inner_h,
+            "polyline": polyline,
+            "area": area,
+            "points": points,
+            "y_ticks": y_ticks,
+            "x_labels": x_labels,
+        }
+        ctx["chart_json"] = json.dumps(chart_rows, ensure_ascii=False)
+        qs = UserActivityLog.objects.select_related("user").order_by("-created_at")
+        ctx["page"] = Paginator(qs, 50).get_page(self.request.GET.get("page"))
+        ctx["total_events"] = UserActivityLog.objects.count()
         return ctx
 
 

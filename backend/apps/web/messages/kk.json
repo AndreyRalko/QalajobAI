@@ -643,7 +643,8 @@
       "moderation": "Модерация",
       "settings": "Параметрлер",
       "lmsSync": "LMS жаңарту журналы",
-      "aiLogs": "AI журналы"
+      "aiLogs": "AI журналы",
+      "activity": "Қолданушы белсенділігі"
     },
     "dashboard": {
       "title": "Әкімші тақтасы",

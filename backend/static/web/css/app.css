@@ -360,6 +360,57 @@ textarea { resize: vertical; }
 .narrow-card { max-width: 480px; }
 .truncate { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pager { display: flex; gap: .8rem; margin-top: 1rem; align-items: center; }
+.activity-chart { margin: 0 0 1.5rem; }
+.activity-chart .section-title { font-size: 1rem; margin: 0 0 .75rem; }
+.activity-line-wrap {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .02);
+  padding: .85rem 1rem 1rem;
+}
+.activity-line-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.activity-grid {
+  stroke: rgba(255, 255, 255, .08);
+  stroke-width: 1;
+}
+.activity-axis {
+  fill: var(--muted, #8aa0b8);
+  font-size: 11px;
+}
+.activity-axis-x { font-size: 10px; }
+.activity-line {
+  stroke: #2bb8a8;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.activity-dot {
+  fill: #5eead4;
+  stroke: #0f1a2a;
+  stroke-width: 1.5;
+}
+.activity-dot:hover {
+  r: 5;
+  fill: #fff;
+}
+.activity-legend {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  margin-top: .65rem;
+  font-size: .85rem;
+  color: var(--muted, #8aa0b8);
+}
+.activity-legend-swatch {
+  width: 1.1rem;
+  height: .2rem;
+  border-radius: 999px;
+  background: #2bb8a8;
+}
 .flash-stack { position: fixed; top: 1rem; right: 1rem; z-index: 50; display: grid; gap: .5rem; }
 .flash { background: #152038; border: 1px solid var(--line); padding: .6rem .8rem; border-radius: 10px; }
 

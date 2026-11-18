@@ -1,5 +1,14 @@
 from django.contrib import admin
-from .models import UserProfile
+from .models import UserActivityLog, UserProfile
+
+
+@admin.register(UserActivityLog)
+class UserActivityLogAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "user_login", "action", "path", "user")
+    list_filter = ("action", "created_at")
+    search_fields = ("user_login", "path", "ip_address")
+    date_hierarchy = "created_at"
+    ordering = ("-created_at",)
 
 
 @admin.register(UserProfile)

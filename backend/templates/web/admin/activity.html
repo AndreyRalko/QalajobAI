@@ -1,0 +1,77 @@
+{% extends "web/admin/base_admin.html" %}
+{% load web_i18n %}
+{% block title %}{% t "admin.menu.activity" %} — Admin{% endblock %}
+{% block page_heading %}{% t "admin.menu.activity" %}{% endblock %}
+{% block content %}
+<p class="muted">{% t "web.activityTotal" %}: {{ total_events }} · {% t "web.activityPeakHint" %}</p>
+
+<section class="activity-chart" aria-label="{% t 'web.activityDaily' %}">
+  <h2 class="section-title">{% t "web.activityDaily" %}</h2>
+  {% if chart.points %}
+  <div class="activity-line-wrap">
+    <svg class="activity-line-svg" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img" aria-label="{% t 'web.activityDaily' %}">
+      <defs>
+        <linearGradient id="activityArea" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2bb8a8" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#2bb8a8" stop-opacity="0.02"/>
+        </linearGradient>
+      </defs>
+
+      {% for tick in chart.y_ticks %}
+      <line class="activity-grid" x1="{{ chart.pad_l }}" y1="{{ tick.y }}" x2="{{ chart.width|add:'-16' }}" y2="{{ tick.y }}"/>
+      <text class="activity-axis" x="{{ chart.pad_l|add:'-8' }}" y="{{ tick.y|add:'4' }}" text-anchor="end">{{ tick.value }}</text>
+      {% endfor %}
+
+      <polyline class="activity-area" points="{{ chart.area }}" fill="url(#activityArea)" stroke="none"/>
+      <polyline class="activity-line" points="{{ chart.polyline }}" fill="none"/>
+
+      {% for p in chart.points %}
+      <circle class="activity-dot" cx="{{ p.x }}" cy="{{ p.y }}" r="3.2" data-label="{{ p.label }}" data-total="{{ p.total }}">
+        <title>{{ p.label }}: {{ p.total }}</title>
+      </circle>
+      {% endfor %}
+
+      {% for label in chart.x_labels %}
+      <text class="activity-axis activity-axis-x" x="{{ label.x }}" y="{{ chart.height|add:'-10' }}" text-anchor="middle">{{ label.label }}</text>
+      {% endfor %}
+    </svg>
+    <div class="activity-legend">
+      <span class="activity-legend-swatch"></span>
+      {% t "web.activityDaily" %} · max {{ max_total }}
+    </div>
+  </div>
+  {% else %}
+  <p class="muted">{% t "web.noLogs" %}</p>
+  {% endif %}
+</section>
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>{% t "common.date" %}</th>
+      <th>{% t "auth.login" %}</th>
+      <th>{% t "web.activityAction" %}</th>
+      <th>Path</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for log in page %}
+    <tr>
+      <td>{{ log.created_at }}</td>
+      <td>{{ log.user_login|default:"—" }}</td>
+      <td>{{ log.action }}</td>
+      <td>{{ log.path|default:"—" }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="4">{% t "web.empty" %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if page.has_other_pages %}
+<div class="pager">
+  {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">←</a>{% endif %}
+  <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a href="?page={{ page.next_page_number }}">→</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

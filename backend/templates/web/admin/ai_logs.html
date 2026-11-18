@@ -18,7 +18,7 @@
   {% for log in page %}
     <tr>
       <td>{{ log.created_at }}</td>
-      <td>{{ log.user_login|default:log.user|user_login }}</td>
+      <td>{% if log.user_login %}{{ log.user_login }}{% else %}{{ log.user|user_login }}{% endif %}</td>
       <td>{{ log.feature }}</td>
       <td>{{ log.status }}</td>
       <td>{{ log.provider|default:"—" }}</td>

@@ -11,6 +11,10 @@ register = template.Library()
 
 @register.filter
 def user_login(user):
+    if user is None or user == "":
+        return ""
+    if isinstance(user, str):
+        return user
     return get_user_login(user)
 
 

@@ -643,7 +643,8 @@
       "moderation": "Moderation",
       "settings": "Settings",
       "lmsSync": "LMS Sync Logs",
-      "aiLogs": "AI Logs"
+      "aiLogs": "AI Logs",
+      "activity": "User activity"
     },
     "dashboard": {
       "title": "Admin Dashboard",

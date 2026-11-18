@@ -66,6 +66,15 @@ def login_view(request):
                     user_agent=request.META.get("HTTP_USER_AGENT", ""),
                     success=True,
                 )
+                from apps.users.models import UserActivityAction
+                from apps.users.services.activity import log_user_activity
+
+                log_user_activity(
+                    user=user,
+                    action=UserActivityAction.LOGIN,
+                    path=request.path,
+                    request=request,
+                )
                 login(request, user)
                 next_url = request.GET.get("next") or request.POST.get("next")
                 if next_url and next_url.startswith("/"):

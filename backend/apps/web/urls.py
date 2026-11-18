@@ -53,6 +53,11 @@ urlpatterns = [
         name="admin-ai-logs",
     ),
     path(
+        "app/admin/activity/",
+        views_admin.AdminActivityView.as_view(),
+        name="admin-activity",
+    ),
+    path(
         "app/admin/settings/",
         views_admin.AdminSettingsView.as_view(),
         name="admin-settings",

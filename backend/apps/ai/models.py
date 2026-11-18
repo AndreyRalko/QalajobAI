@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 class AIFeatureType(models.TextChoices):
     RESUME_ANALYSIS = 'resume_analysis', 'Анализ резюме'
@@ -44,7 +45,7 @@ class AiActionLog(models.Model):
     ai_input = models.JSONField(default=dict, blank=True)
     ai_output = models.TextField(blank=True)
     error_message = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     class Meta:
         db_table = 'ai_action_logs'
